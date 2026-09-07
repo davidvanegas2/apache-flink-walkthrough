@@ -288,7 +288,7 @@
     </section>
 
     <div class="part-title">Part 2 — flink-console-walkthrough.html</div>
-    <div class="part-sub">~4:15 total.</div>
+    <div class="part-sub">~4:35 total.</div>
 
     <section class="beat" id="c1">
       <h3>Screen 1 <span class="time-tag">~25s</span></h3>
@@ -326,9 +326,21 @@
     </section>
 
     <section class="beat" id="c6">
-      <h3>Screen 6 <span class="time-tag">~20s</span></h3>
-      <div class="onscreen">Promote to a durable application</div>
-      <div class="verbatim">"A couple of clicks in the notebook's Actions menu — Build and Export, then Deploy — turns everything we just did interactively into a durable, autoscaled, checkpointed production application. Nothing gets re-typed; it's pre-populated from the notebook."</div>
+      <h3>Screen 6 <span class="time-tag">~40s · 3 clicks</span></h3>
+      <div class="onscreen">Promote to a durable application — Build and Export → Create application → Run</div>
+      <div class="step">
+        <div class="step-caption">① click Build and Export</div>
+        <div class="verbatim">"This is a real packaging step — the notebook's code gets built into a JAR and pushed to S3. Nothing gets re-typed from here on; everything downstream reads from what just got built."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">② click Create application</div>
+        <span class="cue-action">→ point at the pre-filled fields</span>
+        <div class="verbatim">"Name, runtime, parallelism, code location, IAM role — all pre-populated. And notice snapshots are on: that's the durable state the notebook didn't have."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">③ click Run</div>
+        <div class="verbatim">"Same choice you'd face fixing a poison pill — restore from a snapshot, or start fresh. Either way, watch it come up: KPUs, parallelism, records per second, all climbing live."</div>
+      </div>
     </section>
 
     <section class="beat" id="c7">

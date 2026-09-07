@@ -419,27 +419,62 @@
     <!-- SCREEN 5: deploy -->
     <div class="screen" id="screen-5">
       <h1>Promote to a durable application</h1>
-      <div class="sub">Everything you just saw interactively becomes a real production pipeline in one step.</div>
-      <div class="card">
-        <div style="display:flex;align-items:center;gap:20px;">
-          <div style="text-align:center;">
-            <div class="tag tag-orange">Studio notebook</div>
-            <div class="hint">Interactive · exploratory</div>
+      <div class="sub">Same three clicks as the real console — click through each one to see what actually happens behind the scenes.</div>
+
+      <div class="card" id="deploy-step1">
+        <h2>1 · Build and Export <span class="tag" id="step1-tag" style="margin-left:8px;display:none;">✓ Built</span></h2>
+        <div class="hint">Notebook's <span class="mono">Actions</span> menu → <span class="mono">Build MyNotebook and export to Amazon S3</span></div>
+        <div class="zeppelin-box" id="build-log" style="margin-top:10px;min-height:20px;font-size:12.5px;"></div>
+        <div style="margin-top:12px;"><span class="btn btn-primary" id="build-btn">Build and Export</span></div>
+      </div>
+
+      <div class="card" id="deploy-step2" style="display:none;">
+        <h2>2 · Deploy as streaming application</h2>
+        <div class="hint">Pre-populated straight from the notebook — nothing here gets re-typed.</div>
+        <div class="row2" style="margin-top:10px;">
+          <div>
+            <label>Application name</label>
+            <input type="text" value="MyNotebook-App" readonly>
+            <label>Runtime</label>
+            <input type="text" value="Apache Flink 1.20" readonly>
+            <label>Code location</label>
+            <input type="text" value="s3://my-notebook-artifacts/MyNotebook/MyNotebook.jar" readonly>
           </div>
-          <div style="font-size:20px;color:var(--text-muted);">→</div>
-          <div style="text-align:center;">
-            <div class="tag tag-green">Running application</div>
-            <div class="hint">Durable state · autoscaled · checkpointed</div>
+          <div>
+            <label>Parallelism</label>
+            <input type="text" value="4" readonly>
+            <label>AWS Glue database</label>
+            <input type="text" value="default" readonly>
+            <label>IAM role</label>
+            <input type="text" value="MyNotebook-App-role" readonly>
           </div>
         </div>
-        <table style="margin-top:18px;">
-          <tr><th style="width:26px;">#</th><th>From the notebook's <span class="mono">Actions</span> menu</th></tr>
-          <tr><td>1</td><td><b>Build and Export</b> — packages the notebook's code and pushes it to the S3 bucket set under "Application code location."</td></tr>
-          <tr><td>2</td><td><b>Deploy Zeppelin Note as Kinesis streaming application</b> — then <b>Deploy via AWS Console</b>.</td></tr>
-          <tr><td>3</td><td>Lands on a pre-populated <b>Create streaming application</b> page — name, parallelism, code location, Glue DB and IAM role are already filled in from the notebook. Snapshots are on by default.</td></tr>
-        </table>
-        <div class="hint" style="margin-top:8px;">Nothing here is re-typed — the whole point of the promotion path is that the interactive session and the durable app share one definition.</div>
-        <div style="margin-top:16px;"><span class="btn btn-primary">Build and Export</span></div>
+        <div class="hint" style="margin-top:8px;">Snapshots: <b>Enabled</b> — this is what makes the application's state durable across restarts, unlike the notebook it came from.</div>
+        <div style="margin-top:12px;"><span class="btn btn-primary" id="create-btn">Create application</span></div>
+      </div>
+
+      <div class="card" id="deploy-step3" style="display:none;">
+        <h2>3 · Run it <span class="tag tag-orange" id="app-run-status" style="margin-left:8px;">READY</span></h2>
+        <div class="hint">Same choice you'd face restarting after fixing a poison pill.</div>
+        <div class="radio-row" style="margin-top:8px;">
+          <label><input type="radio" name="startpos" id="restore-snapshot" checked> Restore from latest snapshot</label>
+          <label><input type="radio" name="startpos" id="skip-snapshot"> Skip restore — start from LATEST</label>
+        </div>
+        <div style="margin-top:12px;"><span class="btn btn-primary" id="run-btn">Run</span></div>
+        <div class="tile-row" id="running-metrics" style="margin-top:16px;display:none;">
+          <div class="metric-box">
+            <div class="metric-label">KPUs</div>
+            <div class="metric-value" id="deploy-kpus">0</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Parallelism</div>
+            <div class="metric-value" id="deploy-parallelism">0</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">numRecordsInPerSecond</div>
+            <div class="metric-value" id="deploy-rps">0</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -535,6 +570,7 @@ let current = 0;
 let queryInterval = null;
 let healthTimer = null;
 let health = { rps:0, restarts:2, failedCk:2, fixed:false, tick:0 };
+let deployMetricsTimer = null;
 
 const ddlBaseOptions = [
   "'connector' = 'kinesis'",
@@ -567,7 +603,72 @@ function showScreen(n){
 
   clearInterval(queryInterval); queryInterval = null;
   clearInterval(healthTimer); healthTimer = null;
+  clearInterval(deployMetricsTimer); deployMetricsTimer = null;
   if(n===6) resetPoisonScreen();
+  if(n===5) resetDeployScreen();
+}
+
+function resetDeployScreen(){
+  document.getElementById("deploy-step2").style.display = "none";
+  document.getElementById("deploy-step3").style.display = "none";
+  document.getElementById("step1-tag").style.display = "none";
+  document.getElementById("build-log").innerHTML = "";
+  document.getElementById("build-btn").textContent = "Build and Export";
+  document.getElementById("build-btn").style.pointerEvents = "auto";
+  document.getElementById("app-run-status").textContent = "READY";
+  document.getElementById("app-run-status").className = "tag tag-orange";
+  document.getElementById("running-metrics").style.display = "none";
+  document.getElementById("restore-snapshot").checked = true;
+  document.getElementById("deploy-kpus").textContent = "0";
+  document.getElementById("deploy-parallelism").textContent = "0";
+  document.getElementById("deploy-rps").textContent = "0";
+}
+
+function runBuildLog(){
+  const log = document.getElementById("build-log");
+  const lines = [
+    "Packaging Zeppelin note → application JAR…",
+    "Uploading to s3://my-notebook-artifacts/MyNotebook/…",
+    "✓ Export complete"
+  ];
+  let i = 0;
+  const btn = document.getElementById("build-btn");
+  btn.style.pointerEvents = "none";
+  const timer = setInterval(()=>{
+    const div = document.createElement("div");
+    div.textContent = lines[i];
+    if(i===lines.length-1) div.style.color = "#4ec9b0";
+    log.appendChild(div);
+    i++;
+    if(i>=lines.length){
+      clearInterval(timer);
+      document.getElementById("step1-tag").style.display = "inline-block";
+      document.getElementById("step1-tag").className = "tag tag-green";
+      document.getElementById("deploy-step2").style.display = "block";
+    }
+  }, 650);
+}
+
+function runApplicationStart(){
+  const tag = document.getElementById("app-run-status");
+  const restoring = document.getElementById("restore-snapshot").checked;
+  tag.textContent = restoring ? "RESTORING SNAPSHOT" : "STARTING";
+  tag.className = "tag tag-orange";
+  setTimeout(()=>{
+    tag.textContent = "RUNNING";
+    tag.className = "tag tag-green";
+    document.getElementById("running-metrics").style.display = "flex";
+    let kpus=0, parallelism=0, rps=0;
+    deployMetricsTimer = setInterval(()=>{
+      kpus = Math.min(4, kpus+1);
+      parallelism = Math.min(4, parallelism+1);
+      rps = Math.min(46, rps + 8 + Math.floor(Math.random()*6));
+      document.getElementById("deploy-kpus").textContent = kpus;
+      document.getElementById("deploy-parallelism").textContent = parallelism;
+      document.getElementById("deploy-rps").textContent = rps;
+      if(kpus>=4 && parallelism>=4 && rps>=46) clearInterval(deployMetricsTimer);
+    }, 500);
+  }, restoring ? 1600 : 900);
 }
 
 function renderDDL(){
@@ -677,6 +778,12 @@ document.getElementById("tile-app").addEventListener("click", ()=>{
   document.getElementById("tile-studio").classList.remove("selected");
 });
 document.getElementById("run-query").addEventListener("click", startLiveQuery);
+
+document.getElementById("build-btn").addEventListener("click", runBuildLog);
+document.getElementById("create-btn").addEventListener("click", ()=>{
+  document.getElementById("deploy-step3").style.display = "block";
+});
+document.getElementById("run-btn").addEventListener("click", runApplicationStart);
 
 document.querySelectorAll("#screen-6 .poison-row").forEach(row=>{
   row.addEventListener("click", ()=>{
