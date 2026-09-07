@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Managed Service for Apache Flink — Simulated Walkthrough</title>
+<style>
+  :root{
+    --aws-navy:#232f3e;
+    --aws-navy-light:#2b3b4e;
+    --aws-orange:#ec7211;
+    --aws-orange-dark:#c25e0e;
+    --bg:#f2f3f3;
+    --card:#ffffff;
+    --border:#d5dbdb;
+    --text:#16191f;
+    --text-muted:#5f6b7a;
+    --green:#1d8102;
+    --red:#d13212;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+  .badge-sim{
+    position:fixed;
+    top:8px;
+    right:12px;
+    background:#fff8e8;
+    border:1px solid #f0c674;
+    color:#8a6100;
+    font-size:11px;
+    padding:3px 8px;
+    border-radius:3px;
+    z-index:50;
+    font-weight:600;
+    letter-spacing:.2px;
+  }
+  .topbar{
+    background:var(--aws-navy);
+    color:#fff;
+    padding:10px 16px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    font-size:14px;
+  }
+  .topbar .logo{font-weight:700;letter-spacing:.3px;}
+  .topbar .crumb{color:#b6bec9;}
+  .topbar .search{
+    margin-left:auto;
+    background:#1a232e;
+    border:1px solid #3a4a5c;
+    color:#9aa7b5;
+    padding:5px 10px;
+    border-radius:3px;
+    font-size:13px;
+    width:220px;
+  }
+  .shell{
+    display:flex;
+    min-height:calc(100vh - 44px);
+  }
+  .sidenav{
+    width:220px;
+    background:#fff;
+    border-right:1px solid var(--border);
+    padding:14px 0;
+  }
+  .sidenav .group-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.4px;
+    color:var(--text-muted);
+    padding:6px 16px;
+  }
+  .sidenav a{
+    display:block;
+    padding:8px 16px;
+    font-size:14px;
+    color:var(--text);
+    text-decoration:none;
+    border-left:3px solid transparent;
+  }
+  .sidenav a.active{
+    background:#e9f1fb;
+    border-left-color:var(--aws-navy);
+    font-weight:600;
+  }
+  .main{
+    flex:1;
+    padding:22px 30px 100px 30px;
+    max-width:980px;
+  }
+  h1{font-size:22px;margin:0 0 4px 0;}
+  .sub{color:var(--text-muted);font-size:14px;margin-bottom:20px;}
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:20px;
+    margin-bottom:16px;
+  }
+  .card h2{font-size:15px;margin:0 0 12px 0;}
+  .tile-row{display:flex;gap:14px;}
+  .tile{
+    flex:1;
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:16px;
+    cursor:pointer;
+    transition:border-color .15s;
+  }
+  .tile:hover{border-color:var(--aws-navy);}
+  .tile.selected{border-color:var(--aws-orange);box-shadow:0 0 0 1px var(--aws-orange);}
+  .tile .tile-title{font-weight:600;margin-bottom:6px;font-size:14px;}
+  .tile .tile-desc{font-size:12.5px;color:var(--text-muted);}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 5px 0;}
+  label .req{color:var(--red);}
+  .hint{font-size:12px;color:var(--text-muted);margin-top:4px;}
+  input[type=text], select{
+    width:100%;
+    padding:7px 9px;
+    border:1px solid #879596;
+    border-radius:3px;
+    font-size:14px;
+    background:#fff;
+  }
+  .radio-row{display:flex;gap:18px;margin-top:6px;}
+  .radio-row label{display:flex;align-items:center;gap:6px;font-weight:400;margin:0;font-size:13px;}
+  .btn{
+    display:inline-block;
+    padding:8px 16px;
+    border-radius:3px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    border:1px solid transparent;
+    user-select:none;
+  }
+  .btn-primary{background:var(--aws-orange);color:#fff;}
+  .btn-primary:hover{background:var(--aws-orange-dark);}
+  .btn-secondary{background:#fff;border-color:#879596;color:var(--text);}
+  .btn-secondary:hover{background:#f2f3f3;}
+  .btn[disabled]{opacity:.45;cursor:not-allowed;}
+  code, .mono{font-family:"SFMono-Regular",Consolas,monospace;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);}
+  th{color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px;}
+  .tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:10px;font-weight:600;}
+  .tag-green{background:#e9f6e5;color:var(--green);}
+  .tag-orange{background:#fdf0e2;color:var(--aws-orange-dark);}
+  .zeppelin-box{
+    background:#1e1e1e;
+    color:#d4d4d4;
+    border-radius:4px;
+    padding:14px;
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:13px;
+    line-height:1.5;
+  }
+  .zeppelin-box .kw{color:#569cd6;}
+  .zeppelin-box .str{color:#ce9178;}
+  .row2{display:flex;gap:16px;}
+  .row2 > div{flex:1;}
+  .metric-box{
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:12px 14px;
+  }
+  .metric-box .metric-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;}
+  .metric-box .metric-value{font-size:22px;font-weight:700;margin-top:2px;}
+  .poison-row{
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:12.5px;
+    padding:6px 8px;
+    border-radius:3px;
+    margin-bottom:4px;
+    border:1px solid transparent;
+    transition:background-color .4s ease, border-color .4s ease, color .4s ease;
+  }
+  .poison-ok{background:#f4f4f4;}
+  .poison-bad{background:#fbe9e7;border:1px solid #f3b7ac;color:#9c2b19;}
+  .reveal{
+    margin-top:12px;
+    padding:12px 14px;
+    background:#f0f6ff;
+    border:1px solid #b3d1f5;
+    border-radius:4px;
+    font-size:13.5px;
+    display:none;
+  }
+  .footer-nav{
+    position:fixed;
+    bottom:0;left:0;right:0;
+    background:#fff;
+    border-top:1px solid var(--border);
+    padding:12px 24px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .progress-track{
+    flex:1;
+    height:6px;
+    background:#e4e7e8;
+    border-radius:3px;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background:var(--aws-orange);
+    transition:width .3s ease;
+  }
+  .step-label{font-size:12.5px;color:var(--text-muted);white-space:nowrap;}
+  .screen{display:none;}
+  .screen.active{display:block;animation:fadein .25s ease;}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+  .callout{
+    background:#fffaf0;
+    border:1px solid #f0c674;
+    border-radius:4px;
+    padding:10px 12px;
+    font-size:13px;
+    margin-top:12px;
+  }
+  .callout b{color:#8a6100;}
+</style>
+</head>
+<body>
+
+<div class="badge-sim">SIMULATED CONSOLE — no real AWS resources</div>
+
+<div class="topbar">
+  <span class="logo">aws</span>
+  <span class="crumb">Managed Service for Apache Flink</span>
+  <input class="search" placeholder="Search (disabled in simulation)" disabled>
+</div>
+
+<div class="shell">
+  <div class="sidenav">
+    <div class="group-label">Managed Flink</div>
+    <a href="#" class="nav-link active" data-screen="0">Applications dashboard</a>
+    <a href="#" class="nav-link" data-screen="1">Kinesis Data Streams</a>
+    <a href="#" class="nav-link" data-screen="2">Create notebook</a>
+    <a href="#" class="nav-link" data-screen="3">Notebook: MyNotebook</a>
+    <a href="#" class="nav-link" data-screen="4">Scaling &amp; parallelism</a>
+    <a href="#" class="nav-link" data-screen="5">Deploy as application</a>
+    <div class="group-label" style="margin-top:14px;">Practice</div>
+    <a href="#" class="nav-link" data-screen="6">Spot the poison pill</a>
+  </div>
+
+  <div class="main">
+
+    <!-- SCREEN 0: Dashboard / fork -->
+    <div class="screen active" id="screen-0">
+      <h1>Applications dashboard</h1>
+      <div class="sub">Managed Service for Apache Flink runs Apache Flink for you — no servers to patch, autoscaling built in.</div>
+      <div class="card">
+        <h2>Choose how to build</h2>
+        <div class="tile-row">
+          <div class="tile selected" id="tile-studio">
+            <div class="tile-title">Studio notebook</div>
+            <div class="tile-desc">Interactive. Write SQL, Python, or Scala in Apache Zeppelin and see results in seconds. Best for exploring a stream and building something quickly.</div>
+          </div>
+          <div class="tile" id="tile-app">
+            <div class="tile-title">Streaming application</div>
+            <div class="tile-desc">Packaged Java or Python code, deployed as a continuously running job. Best once the logic is settled and needs to run 24/7.</div>
+          </div>
+        </div>
+        <div class="callout"><b>Today's path:</b> Studio notebook — fastest way to show a live result, and it can be promoted to a durable running app later without rewriting anything.</div>
+      </div>
+    </div>
+
+    <!-- SCREEN 1: source exists -->
+    <div class="screen" id="screen-1">
+      <h1>Amazon Kinesis Data Streams</h1>
+      <div class="sub">Flink doesn't create its own source — it attaches to a stream or topic that already exists.</div>
+      <div class="card">
+        <h2>Existing streams</h2>
+        <table>
+          <tr><th>Name</th><th>Status</th><th>Shards</th><th>Retention</th></tr>
+          <tr><td class="mono">market-ticks-input</td><td><span class="tag tag-green">Active</span></td><td>2</td><td>24 hrs</td></tr>
+          <tr><td class="mono">orders-raw</td><td><span class="tag tag-green">Active</span></td><td>4</td><td>24 hrs</td></tr>
+        </table>
+        <div class="callout"><b>Note:</b> this is exactly why labs trip people up — if you go looking for "where does Flink create its stream," you won't find it. The stream is a separate resource Flink reads from.</div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: create notebook wizard -->
+    <div class="screen" id="screen-2">
+      <h1>Create Studio notebook</h1>
+      <div class="sub">Three things this wizard actually needs from you.</div>
+      <div class="card">
+        <label>Studio notebook name <span class="req">*</span></label>
+        <input type="text" value="MyNotebook" readonly>
+
+        <label>IAM role <span class="req">*</span></label>
+        <select disabled><option>MyNotebook-role (read: market-ticks-input · write: S3, output stream)</option></select>
+        <div class="hint">Needs read on the source, write on any sink, and S3 access for checkpoints and code storage.</div>
+
+        <label>AWS Glue database <span class="req">*</span></label>
+        <select disabled><option>default</option></select>
+        <div class="hint">Just metadata storage for your table schemas — not a data warehouse, don't over-think it.</div>
+
+        <label>Source</label>
+        <div class="radio-row">
+          <label><input type="radio" name="src" checked disabled> Kinesis Data Streams</label>
+          <label><input type="radio" name="src" disabled> Amazon MSK</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: Zeppelin live query -->
+    <div class="screen" id="screen-3">
+      <h1>MyNotebook — Apache Zeppelin</h1>
+      <div class="sub">Run a query, watch results arrive as the stream moves.</div>
+      <div class="card">
+        <div class="zeppelin-box">
+<span class="kw">%flink.ssql</span>(type=update)<br>
+<span class="kw">SELECT</span> ticker, price, event_time<br>
+<span class="kw">FROM</span> market_ticks<br>
+<span class="kw">WHERE</span> price &gt; <span class="str">100.0</span>;
+        </div>
+        <div style="margin-top:10px;">
+          <span class="btn btn-primary" id="run-query">▶ Run</span>
+          <span class="hint" id="run-hint" style="margin-left:8px;">Click Run to start streaming results</span>
+        </div>
+        <table style="margin-top:12px;">
+          <thead><tr><th>Ticker</th><th>Price</th><th>Event time</th></tr></thead>
+          <tbody id="live-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: parallelism / KPUs -->
+    <div class="screen" id="screen-4">
+      <h1>Scaling &amp; parallelism</h1>
+      <div class="sub">This is the "serverless" part — AWS adjusts compute to match load.</div>
+      <div class="row2">
+        <div class="card">
+          <h2>Parallelism</h2>
+          <div class="metric-box">
+            <div class="metric-label">Current parallelism</div>
+            <div class="metric-value">4</div>
+          </div>
+          <div class="hint" style="margin-top:8px;">How many parallel tasks run. Benefits from multiple shards, KeyBy operations, or multiple window operators.</div>
+        </div>
+        <div class="card">
+          <h2>KPUs (Kinesis Processing Units)</h2>
+          <div class="metric-box">
+            <div class="metric-label">Auto-scaling</div>
+            <div class="metric-value tag-green" style="color:var(--green);font-size:16px;">Enabled ✓</div>
+          </div>
+          <div class="hint" style="margin-top:8px;">Each KPU bundles compute + memory. AWS scales the count up or down automatically as source throughput changes — this is what you're paying for, and only for what's running.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 5: deploy -->
+    <div class="screen" id="screen-5">
+      <h1>Promote to a durable application</h1>
+      <div class="sub">Everything you just saw interactively becomes a real production pipeline in one step.</div>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:20px;">
+          <div style="text-align:center;">
+            <div class="tag tag-orange">Studio notebook</div>
+            <div class="hint">Interactive · exploratory</div>
+          </div>
+          <div style="font-size:20px;color:var(--text-muted);">→</div>
+          <div style="text-align:center;">
+            <div class="tag tag-green">Running application</div>
+            <div class="hint">Durable state · autoscaled · checkpointed</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;"><span class="btn btn-primary">Build and export</span></div>
+      </div>
+    </div>
+
+    <!-- SCREEN 6: poison pill practice -->
+    <div class="screen" id="screen-6">
+      <h1>Practice: spot the poison pill</h1>
+      <div class="sub">One of these records will break a naive deserializer. Which one, and why?</div>
+      <div class="card">
+        <div class="poison-row poison-ok">{"ticker": "AMZN", "price": 231.55, "event_time": "2026-09-02T10:01:02Z"}</div>
+        <div class="poison-row poison-ok">{"ticker": "MSFT", "price": 512.10, "event_time": "2026-09-02T10:01:03Z"}</div>
+        <div class="poison-row poison-ok" id="poison-target">{"ticker": "GOOG", "price": "n/a", event_time: 2026-09-02T10:01:04Z}</div>
+        <div class="poison-row poison-ok">{"ticker": "AAPL", "price": 228.90, "event_time": "2026-09-02T10:01:05Z"}</div>
+        <div style="margin-top:12px;"><span class="btn btn-secondary" id="reveal-btn">Reveal answer</span></div>
+        <div class="reveal" id="reveal-box">
+          The third record: <span class="mono">price</span> is a string instead of a number, and the field name <span class="mono">event_time</span> is missing its quotes — invalid JSON. A naive deserializer throws on this and can stall the whole task.
+          <br><br>The fix pattern: catch deserialization failures and route the bad record to a side output (a "dead-letter" stream) instead of letting it crash the job — the good records keep flowing.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer-nav">
+  <span class="btn btn-secondary" id="prev-btn">← Prev</span>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:14.3%"></div></div>
+  <span class="step-label" id="step-label">Screen 1 of 7</span>
+  <span class="btn btn-primary" id="next-btn">Next →</span>
+</div>
+
+<script>
+const totalScreens = 7;
+let current = 0;
+let queryInterval = null;
+
+const tickers = ["AMZN","MSFT","AAPL","GOOG","NVDA","TSLA"];
+function randomRow(){
+  return {
+    ticker: tickers[Math.floor(Math.random()*tickers.length)],
+    price: (100 + Math.random()*400).toFixed(2),
+    time: new Date().toLocaleTimeString()
+  };
+}
+
+function showScreen(n){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("screen-"+n).classList.add("active");
+  document.querySelectorAll(".nav-link").forEach(a=>a.classList.remove("active"));
+  const navLink = document.querySelector('.nav-link[data-screen="'+n+'"]');
+  if(navLink) navLink.classList.add("active");
+
+  document.getElementById("step-label").textContent = "Screen "+(n+1)+" of "+totalScreens;
+  document.getElementById("progress-fill").style.width = ((n+1)/totalScreens*100)+"%";
+  document.getElementById("prev-btn").style.visibility = n===0 ? "hidden" : "visible";
+  document.getElementById("next-btn").textContent = n===totalScreens-1 ? "Restart ↺" : "Next →";
+
+  clearInterval(queryInterval); queryInterval = null;
+}
+
+function startLiveQuery(){
+  const tbody = document.getElementById("live-rows");
+  tbody.innerHTML = "";
+  document.getElementById("run-hint").textContent = "Streaming...";
+  queryInterval = setInterval(()=>{
+    const r = randomRow();
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td>"+r.ticker+"</td><td>"+r.price+"</td><td class='mono'>"+r.time+"</td>";
+    tbody.insertBefore(tr, tbody.firstChild);
+    while(tbody.children.length>6) tbody.removeChild(tbody.lastChild);
+  }, 900);
+}
+
+document.getElementById("next-btn").addEventListener("click", ()=>{
+  current = current===totalScreens-1 ? 0 : current+1;
+  showScreen(current);
+});
+document.getElementById("prev-btn").addEventListener("click", ()=>{
+  if(current>0){ current--; showScreen(current); }
+});
+document.querySelectorAll(".nav-link").forEach(a=>{
+  a.addEventListener("click", (e)=>{
+    e.preventDefault();
+    current = parseInt(a.dataset.screen);
+    showScreen(current);
+  });
+});
+document.getElementById("tile-studio").addEventListener("click", ()=>{
+  document.getElementById("tile-studio").classList.add("selected");
+  document.getElementById("tile-app").classList.remove("selected");
+});
+document.getElementById("tile-app").addEventListener("click", ()=>{
+  document.getElementById("tile-app").classList.add("selected");
+  document.getElementById("tile-studio").classList.remove("selected");
+});
+document.getElementById("run-query").addEventListener("click", startLiveQuery);
+document.getElementById("reveal-btn").addEventListener("click", ()=>{
+  const target = document.getElementById("poison-target");
+  target.classList.remove("poison-ok");
+  target.classList.add("poison-bad");
+  document.getElementById("reveal-box").style.display = "block";
+});
+
+showScreen(0);
+</script>
+
+</body>
+</html>

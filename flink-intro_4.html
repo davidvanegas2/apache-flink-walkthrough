@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Apache Flink — how it works</title>
+<style>
+  :root{
+    --bg:#0b1220;
+    --bg2:#0e1626;
+    --line:rgba(255,255,255,0.09);
+    --text:#eef2f8;
+    --dim:#8a96ab;
+    --flow:#52d1c0;
+    --flow-soft:rgba(82,209,192,0.18);
+    --warn:#f2994a;
+    --danger:#ef5d5d;
+    --batch:#5b6b8c;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:radial-gradient(ellipse at 50% -10%, #142238 0%, var(--bg) 55%);
+    color:var(--text);
+    font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    overflow:hidden;
+  }
+  .stage{
+    position:relative;
+    width:100vw;
+    height:100vh;
+    padding:48px 64px 90px 64px;
+    display:flex;
+    flex-direction:column;
+  }
+  .corner{
+    position:absolute;
+    top:24px;
+    left:64px;
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:12px;
+    color:var(--dim);
+    letter-spacing:.3px;
+  }
+  .act{
+    display:none;
+    flex-direction:column;
+    height:100%;
+    animation:rise .5s ease;
+  }
+  .act.active{display:flex;}
+  @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+  h1{
+    font-size:clamp(30px,4.2vw,52px);
+    font-weight:700;
+    letter-spacing:-.01em;
+    margin:0 0 8px 0;
+  }
+  .sub{
+    font-size:16px;
+    color:var(--dim);
+    max-width:560px;
+    margin:0 0 30px 0;
+    line-height:1.5;
+  }
+  .viz{
+    flex:1;
+    position:relative;
+    display:flex;
+    align-items:center;
+  }
+
+  /* ---- shared node/box styling ---- */
+  .node{
+    background:var(--bg2);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:14px 16px;
+    text-align:center;
+    min-width:120px;
+  }
+  .node .label{font-size:13px;font-weight:600;}
+  .node .value{
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:20px;
+    margin-top:6px;
+    color:var(--flow);
+  }
+  .track{
+    flex:1;
+    height:2px;
+    background:var(--line);
+    position:relative;
+    margin:0 6px;
+    overflow:visible;
+  }
+  .dot{
+    position:absolute;
+    border-radius:50%;
+    top:-4px;
+  }
+
+  /* ---- Act 0: batch vs streaming ---- */
+  .split{display:flex;height:100%;width:100%;gap:48px;}
+  .half{flex:1;display:flex;flex-direction:column;}
+  .half-title{font-size:14px;color:var(--dim);margin-bottom:16px;font-weight:600;}
+  .divider{width:1px;background:var(--line);}
+  .clock{
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:15px;
+    color:var(--batch);
+    margin-bottom:20px;
+  }
+  .filestack{position:relative;height:140px;}
+  .file{
+    position:absolute;
+    width:90px;height:56px;
+    background:var(--bg2);
+    border:1px solid var(--line);
+    border-radius:4px;
+    left:0;
+  }
+  .stream-row{display:flex;align-items:center;height:60px;}
+  .stream-node{
+    background:var(--bg2);
+    border:1px solid var(--flow-soft);
+    border-radius:6px;
+    padding:10px 14px;
+    font-size:13px;
+    color:var(--dim);
+  }
+  .counter-box .value{font-size:26px;}
+
+  /* ---- Act 1: pipeline ---- */
+  .pipeline-row{display:flex;align-items:center;width:100%;}
+  .stat-row{display:flex;gap:40px;margin-top:36px;}
+  .stat{font-family:"SFMono-Regular",Consolas,monospace;}
+  .stat .num{font-size:24px;color:var(--flow);}
+  .stat.drop .num{color:var(--danger);}
+  .stat .cap{font-size:12px;color:var(--dim);display:block;margin-top:2px;}
+  .puff{
+    position:absolute;
+    width:10px;height:10px;
+    border-radius:50%;
+    background:var(--danger);
+    opacity:0;
+  }
+  .demo-layout{display:flex;gap:28px;width:100%;align-items:stretch;}
+  .demo-col{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .demo-col-label{font-size:12px;color:var(--dim);font-weight:600;margin-bottom:10px;}
+  .record-feed{display:flex;flex-direction:column-reverse;gap:6px;font-family:"SFMono-Regular",Consolas,monospace;font-size:12px;justify-content:flex-end;min-height:180px;}
+  .record-row{
+    background:var(--bg2);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:6px 9px;
+    color:var(--flow);
+    animation:fadeUp .3s ease;
+    white-space:nowrap;
+  }
+  .record-row.bad{color:var(--danger);border-color:rgba(239,93,93,0.4);}
+  .sql-box{
+    background:#0d1420;
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:16px 18px;
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:13px;
+    color:#cdd6e3;
+    white-space:pre;
+    line-height:1.7;
+    transition:box-shadow .25s;
+  }
+  .sql-box.pulse{box-shadow:0 0 0 2px rgba(82,209,192,0.45);}
+  .result-table{width:100%;border-collapse:collapse;font-family:"SFMono-Regular",Consolas,monospace;font-size:13.5px;}
+  .result-table td{padding:8px 8px;border-bottom:1px solid var(--line);}
+  .result-table td.store{color:var(--dim);}
+  .result-table td.amount{color:var(--flow);text-align:right;font-weight:700;}
+
+  /* ---- Act 2: state / checkpoint ---- */
+  .narrate{
+    min-height:24px;
+    font-size:15.5px;
+    color:var(--warn);
+    margin-top:20px;
+    max-width:640px;
+    line-height:1.4;
+  }
+  .checkpoint-layout{display:flex;gap:56px;align-items:flex-start;width:100%;}
+  .state-column{flex:1.3;}
+  .state-label{font-size:13px;color:var(--dim);font-weight:600;}
+  .state-caption{font-size:13px;color:var(--dim);margin-top:2px;margin-bottom:16px;}
+  .big-number{
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:clamp(44px,6vw,72px);
+    font-weight:700;
+    transition:color .2s;
+  }
+  .big-number.failing{color:var(--danger);}
+  .big-number.restored{color:var(--warn);}
+  .cp-column{flex:1;border-left:1px solid var(--line);padding-left:32px;}
+  .cp-label{font-size:13px;color:var(--dim);font-weight:600;margin-bottom:12px;}
+  .cp-list{display:flex;flex-direction:column;gap:8px;min-height:150px;}
+  .cp-row{
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:14px;
+    color:var(--flow);
+    background:var(--bg2);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:7px 10px;
+    animation:fadeUp .3s ease;
+  }
+  .cp-row-restoring{
+    border-color:var(--warn);
+    box-shadow:0 0 0 2px rgba(242,153,74,0.3);
+    color:var(--warn);
+  }
+
+  /* ---- Act 3: scale out ---- */
+  .lanes{display:flex;flex-direction:column;gap:18px;width:100%;}
+  .lane-row{display:flex;align-items:center;}
+  .lane-track{flex:1;height:2px;background:var(--line);position:relative;margin:0 14px;}
+  .throughput{margin-top:34px;}
+  .lane-row.lane-locked{opacity:.4;}
+  .lane-row.lane-locked .node{border-style:dashed;}
+
+  /* ---- Act 4: where results go ---- */
+  .fanout{display:flex;align-items:center;width:100%;}
+  .fanout-source{flex:0 0 auto;}
+  .node-sub{font-size:11px;color:var(--dim);font-weight:400;margin-top:4px;line-height:1.3;max-width:140px;}
+  .fanout-paths{
+    position:relative;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:30px;
+    margin-left:18px;
+    padding-left:18px;
+  }
+  .fanout-paths::before{
+    content:"";
+    position:absolute;
+    left:0;top:8%;bottom:8%;
+    width:1px;
+    background:var(--line);
+  }
+  .fanout-path{display:flex;align-items:center;}
+
+  /* ---- Act 5: closing ---- */
+  .closing{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    justify-content:center;
+    height:100%;
+    gap:18px;
+  }
+  .closing p{
+    font-size:clamp(24px,3.4vw,40px);
+    font-weight:700;
+    margin:0;
+    opacity:0;
+    animation:fadeUp .6s ease forwards;
+  }
+  .closing p:nth-child(2){animation-delay:.5s;}
+  .closing .cta{animation-delay:1.1s;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  .btn{
+    display:inline-block;
+    margin-top:6px;
+    padding:12px 22px;
+    border-radius:5px;
+    background:var(--flow);
+    color:#04211d;
+    font-weight:700;
+    font-size:15px;
+    text-decoration:none;
+    cursor:pointer;
+    border:none;
+    opacity:0;
+    animation:fadeUp .6s ease forwards;
+    animation-delay:1.1s;
+  }
+  .btn:hover{background:#6fe0d1;}
+
+  /* ---- nav ---- */
+  .dots{
+    position:absolute;
+    bottom:34px;left:0;right:0;
+    display:flex;
+    justify-content:center;
+    gap:8px;
+  }
+  .dots span{
+    width:7px;height:7px;
+    border-radius:50%;
+    background:var(--line);
+    transition:background .2s;
+  }
+  .dots span.on{background:var(--flow);}
+  .arrow{
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    background:transparent;
+    border:none;
+    color:var(--dim);
+    font-size:30px;
+    cursor:pointer;
+    padding:14px;
+    opacity:.35;
+    transition:opacity .15s;
+  }
+  .arrow:hover{opacity:1;}
+  .arrow.left{left:8px;}
+  .arrow.right{right:8px;}
+</style>
+</head>
+<body>
+
+<div class="corner" id="corner">Act 1 of 5</div>
+
+<div class="stage">
+
+  <!-- ACT 0: batch vs streaming -->
+  <div class="act active" id="act-0">
+    <h1>Data doesn't wait.</h1>
+    <div class="sub">Streaming processes each record the instant it arrives — no waiting for the next run.</div>
+    <div class="viz">
+      <div class="split">
+        <div class="half">
+          <div class="half-title">Batch</div>
+          <div class="clock" id="batch-clock">next run in 03:58</div>
+          <div class="filestack" id="filestack"></div>
+        </div>
+        <div class="divider"></div>
+        <div class="half">
+          <div class="half-title">Streaming</div>
+          <div class="stream-row">
+            <div class="stream-node">source</div>
+            <div class="track" id="stream-track-0"></div>
+            <div class="node counter-box">
+              <div class="label">records processed</div>
+              <div class="value" id="stream-count">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACT 1: pipeline -->
+  <div class="act" id="act-1">
+    <h1>What happens to a record?</h1>
+    <div class="sub">One SQL statement, running continuously — watch what goes in, and what comes out the other side.</div>
+    <div class="viz">
+      <div style="width:100%;">
+        <div class="demo-layout">
+          <div class="demo-col">
+            <div class="demo-col-label">Incoming records</div>
+            <div class="record-feed" id="record-feed"></div>
+          </div>
+          <div class="demo-col">
+            <div class="demo-col-label">Running continuously in Flink</div>
+            <div class="sql-box" id="sql-box">SELECT store,
+       SUM(amount) AS total_sales
+FROM   orders_raw
+GROUP BY store</div>
+          </div>
+          <div class="demo-col">
+            <div class="demo-col-label">Live result — total_sales by store</div>
+            <table class="result-table"><tbody id="result-body"></tbody></table>
+          </div>
+        </div>
+        <div class="narrate" id="pipeline-caption"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACT 2: state / fault tolerance -->
+  <div class="act" id="act-2">
+    <h1>How a checkpoint works.</h1>
+    <div class="sub">Flink keeps its running results in memory. A checkpoint copies that memory to durable storage — so a crash costs seconds, not the whole job.</div>
+    <div class="viz">
+      <div style="width:100%;">
+        <div class="checkpoint-layout">
+          <div class="state-column">
+            <div class="state-label">Flink's memory, right now</div>
+            <div class="state-caption">a running total of ticket sales</div>
+            <div class="big-number" id="big-number">$0</div>
+          </div>
+          <div class="cp-column">
+            <div class="cp-label">Saved checkpoints (e.g. in S3)</div>
+            <div class="cp-list" id="cp-list"></div>
+          </div>
+        </div>
+        <div class="narrate" id="event-caption"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACT 3: scale out -->
+  <div class="act" id="act-3">
+    <h1>Scaling maps to shards.</h1>
+    <div class="sub">Each shard in the source stream gets its own parallel Flink subtask. AWS provisions the compute behind them automatically.</div>
+    <div class="viz">
+      <div style="width:100%;">
+        <div class="lanes" id="scale-lanes"></div>
+        <div class="narrate" id="scale-caption"></div>
+        <div class="stat-row" style="margin-top:14px;">
+          <div class="stat"><span class="num" id="stat-kpu">2</span><span class="cap">KPUs provisioned</span></div>
+          <div class="stat"><span class="num" id="stat-throughput">0</span><span class="cap">events/sec, combined</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACT 4: where results go -->
+  <div class="act" id="act-4">
+    <h1>One stream in, a new stream out.</h1>
+    <div class="sub">Flink doesn't replace your raw data — it sits beside it and continuously produces something new.</div>
+    <div class="viz">
+      <div style="width:100%;">
+        <div class="fanout">
+          <div class="fanout-source">
+            <div class="node">orders-raw<div class="node-sub">the raw stream</div></div>
+          </div>
+          <div class="fanout-paths">
+            <div class="fanout-path">
+              <div class="lane-track" id="track-raw"></div>
+              <div class="node">other consumers<div class="node-sub">read the untouched stream directly</div></div>
+            </div>
+            <div class="fanout-path">
+              <div class="lane-track" id="track-flink-in"></div>
+              <div class="node" id="flink-box">Flink<div class="node-sub">filter + aggregate</div></div>
+              <div class="lane-track" id="track-flink-out"></div>
+              <div class="node">ticket-sales-aggregated<div class="node-sub">a brand-new stream</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="narrate" id="fanout-caption"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACT 5: closing / bridge -->
+  <div class="act" id="act-5">
+    <div class="closing">
+      <p>That's the engine — flowing, stateful, and fault-tolerant.</p>
+      <p>Amazon Managed Service for Apache Flink runs all of this for you.</p>
+      <button class="btn cta" id="open-console">Open the console walkthrough</button>
+    </div>
+  </div>
+
+  <div class="dots" id="dots"></div>
+  <button class="arrow left" id="prev">‹</button>
+  <button class="arrow right" id="next">›</button>
+</div>
+
+<script>
+const N_ACTS = 6;
+let current = 0;
+let cleanupFns = [];
+let advanceWithinAct = null; // set by an act's init if it has a manually-paced caption sequence
+let cornerBase = '';
+
+const dotsEl = document.getElementById('dots');
+for(let i=0;i<N_ACTS;i++){
+  const d = document.createElement('span');
+  if(i===0) d.className='on';
+  dotsEl.appendChild(d);
+}
+
+function clearTimers(){
+  cleanupFns.forEach(fn=>fn());
+  cleanupFns = [];
+}
+
+function setStepIndicator(i, total){
+  const corner = document.getElementById('corner');
+  corner.textContent = cornerBase + (total>1 ? ' \u00b7 ' + (i+1) + '/' + total + ' \u00b7 press \u203a for next line' : '');
+}
+
+function showAct(n){
+  clearTimers();
+  advanceWithinAct = null;
+  document.querySelectorAll('.act').forEach(a=>a.classList.remove('active'));
+  document.getElementById('act-'+n).classList.add('active');
+  document.querySelectorAll('.dots span').forEach((d,i)=>d.classList.toggle('on', i===n));
+  cornerBase = 'Act '+(n+1)+' of '+N_ACTS;
+  document.getElementById('corner').textContent = cornerBase;
+  if(n===0) initAct0();
+  if(n===1) initAct1();
+  if(n===2) initAct2();
+  if(n===3) initAct3();
+  if(n===4) initAct4();
+}
+
+function goTo(n){
+  current = ((n % N_ACTS) + N_ACTS) % N_ACTS;
+  showAct(current);
+}
+
+function goNext(){
+  if(typeof advanceWithinAct === 'function'){
+    const consumed = advanceWithinAct();
+    if(consumed) return;
+  }
+  goTo(current+1);
+}
+
+document.getElementById('next').addEventListener('click', goNext);
+document.getElementById('prev').addEventListener('click', ()=>goTo(current-1));
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='ArrowRight' || e.key===' ') { e.preventDefault(); goNext(); }
+  if(e.key==='ArrowLeft' || e.key==='Backspace') { e.preventDefault(); goTo(current-1); }
+});
+document.getElementById('open-console').addEventListener('click', ()=>{
+  window.open('flink-console-walkthrough.html','_blank');
+});
+
+/* helper: animate a dot across a track element */
+function flow(track, opts){
+  opts = opts || {};
+  const el = document.createElement('div');
+  el.className = 'dot';
+  el.style.background = opts.color || 'var(--flow)';
+  const size = opts.size || 8;
+  el.style.width = size+'px';
+  el.style.height = size+'px';
+  el.style.left = '0px';
+  track.appendChild(el);
+  const width = Math.max(track.clientWidth - size, 20);
+  const anim = el.animate(
+    [{transform:'translateX(0px)', opacity:1},{transform:'translateX('+width+'px)', opacity:1}],
+    {duration: opts.duration || 1200, easing:'linear'}
+  );
+  anim.onfinish = ()=>{
+    el.remove();
+    if(opts.onArrive) opts.onArrive();
+  };
+  return anim;
+}
+
+/* ---------- ACT 0 ---------- */
+function initAct0(){
+  const filestack = document.getElementById('filestack');
+  const clockEl = document.getElementById('batch-clock');
+  const streamCount = document.getElementById('stream-count');
+  const streamTrack = document.getElementById('stream-track-0');
+  filestack.innerHTML = '';
+  streamCount.textContent = '0';
+
+  let secondsLeft = 238; // ~3:58
+  function renderClock(){
+    const m = Math.floor(secondsLeft/60), s = secondsLeft%60;
+    clockEl.textContent = 'next run in ' + m + ':' + String(s).padStart(2,'0');
+  }
+  renderClock();
+  const clockTimer = setInterval(()=>{
+    secondsLeft = secondsLeft>0 ? secondsLeft-1 : 238;
+    renderClock();
+  }, 1000);
+
+  let fileCount = 0;
+  const fileTimer = setInterval(()=>{
+    fileCount++;
+    const f = document.createElement('div');
+    f.className = 'file';
+    f.style.bottom = (Math.min(fileCount,5)-1)*14+'px';
+    f.style.opacity = 0;
+    filestack.appendChild(f);
+    f.animate([{opacity:0, transform:'translateY(-16px)'},{opacity:1, transform:'translateY(0)'}], {duration:400, fill:'forwards'});
+    while(filestack.children.length>5) filestack.removeChild(filestack.firstChild);
+  }, 1400);
+
+  let count = 0;
+  const streamTimer = setInterval(()=>{
+    flow(streamTrack, {duration:900});
+    count++;
+    streamCount.textContent = count.toLocaleString();
+  }, 420);
+
+  cleanupFns.push(()=>{clearInterval(clockTimer);clearInterval(fileTimer);clearInterval(streamTimer);});
+}
+
+/* ---------- ACT 1: what happens to a record ---------- */
+function initAct1(){
+  const feed = document.getElementById('record-feed');
+  const sqlBox = document.getElementById('sql-box');
+  const resultBody = document.getElementById('result-body');
+  const captionEl = document.getElementById('pipeline-caption');
+  feed.innerHTML = '';
+
+  const stores = ['NYC-01','SF-02','CHI-03'];
+  let totals = {}; stores.forEach(s => totals[s] = 0);
+
+  // a deterministic, repeatable script of records — including one bad one — so the
+  // demo tells the same story every time it's shown live
+  const sampleRecords = [
+    {store:'NYC-01', amount:42.50},
+    {store:'SF-02',  amount:18.00},
+    {store:'NYC-01', amount:9.25},
+    {store:'CHI-03', amount:31.10},
+    {store:'SF-02',  amount:'n/a', bad:true},
+    {store:'CHI-03', amount:12.75},
+    {store:'NYC-01', amount:27.00},
+    {store:'SF-02',  amount:15.40},
+  ];
+
+  function renderTable(flashStore){
+    resultBody.innerHTML = '';
+    stores.forEach(s=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td class="store">'+s+'</td><td class="amount" id="amt-'+s+'">$'+totals[s].toFixed(2)+'</td>';
+      resultBody.appendChild(tr);
+    });
+    if(flashStore){
+      const cell = document.getElementById('amt-'+flashStore);
+      if(cell) cell.animate([{color:'#ffffff'},{color:'var(--flow)'}], {duration:650});
+    }
+  }
+  renderTable();
+
+  function pushRecord(rec){
+    const row = document.createElement('div');
+    row.className = 'record-row' + (rec.bad ? ' bad' : '');
+    const amountText = rec.bad ? '"'+rec.amount+'"' : rec.amount.toFixed(2);
+    row.textContent = '{ store: "'+rec.store+'", amount: '+amountText+' }';
+    feed.appendChild(row);
+    while(feed.children.length > 5) feed.removeChild(feed.firstChild);
+  }
+
+  function processRecord(rec){
+    pushRecord(rec);
+    if(rec.bad) return; // filtered — never reaches the query below
+    setTimeout(()=>{
+      sqlBox.classList.add('pulse');
+      setTimeout(()=>sqlBox.classList.remove('pulse'), 350);
+      totals[rec.store] += rec.amount;
+      renderTable(rec.store);
+    }, 350);
+  }
+
+  let recIdx = 0;
+  const recordTimer = setInterval(()=>{
+    processRecord(sampleRecords[recIdx % sampleRecords.length]);
+    recIdx++;
+  }, 1300);
+
+  const steps = [
+    { caption:"Every record that arrives is one row streaming in \u2014 watch them land on the left." },
+    { caption:"This SQL statement is running continuously in Flink \u2014 not once, forever, on whatever comes next." },
+    { caption:"Watch the totals on the right update the instant a valid record is aggregated." },
+    { caption:"A malformed record \u2014 an amount that isn't a number \u2014 never reaches the aggregation. It's filtered out first, before it can corrupt a total." },
+  ];
+  let stepIndex = 0;
+  function showStep(i){
+    captionEl.textContent = steps[i].caption;
+    setStepIndicator(i, steps.length);
+  }
+  showStep(0);
+  advanceWithinAct = function(){
+    if(stepIndex < steps.length-1){ stepIndex++; showStep(stepIndex); return true; }
+    return false;
+  };
+
+  cleanupFns.push(()=>clearInterval(recordTimer));
+}
+
+/* ---------- ACT 2: state / checkpoint ---------- */
+function initAct2(){
+  const bigNumber = document.getElementById('big-number');
+  const eventCaption = document.getElementById('event-caption');
+  const cpList = document.getElementById('cp-list');
+  cpList.innerHTML = '';
+
+  let total = 0;
+  let ticking = true;
+  let cpValues = []; // most recent first
+
+  function render(){ bigNumber.textContent = '$' + total.toLocaleString(); }
+  render();
+
+  const tickTimer = setInterval(()=>{
+    if(!ticking) return;
+    total += Math.floor(15 + Math.random()*45);
+    render();
+  }, 250);
+
+  function renderCpList(){
+    cpList.innerHTML = '';
+    cpValues.forEach((v)=>{
+      const row = document.createElement('div');
+      row.className = 'cp-row';
+      row.textContent = '\u2713 $' + v.toLocaleString();
+      cpList.appendChild(row);
+    });
+  }
+
+  function takeCheckpoint(){
+    cpValues.unshift(total);
+    if(cpValues.length > 4) cpValues.pop();
+    renderCpList();
+  }
+
+  function restoreFromCheckpoint(){
+    const restored = cpValues.length ? cpValues[0] : 0;
+    total = restored;
+    render();
+    bigNumber.classList.remove('failing');
+    bigNumber.classList.add('restored');
+    const firstRow = cpList.firstElementChild;
+    if(firstRow) firstRow.classList.add('cp-row-restoring');
+    setTimeout(()=>{
+      bigNumber.classList.remove('restored');
+      if(firstRow) firstRow.classList.remove('cp-row-restoring');
+    }, 1000);
+  }
+
+  // scripted narration sequence — each step explains exactly what's on screen.
+  // advancing is manual: the presenter clicks next (or the arrow keys / spacebar)
+  // and each step's action fires the moment that step is shown.
+  const steps = [
+    { caption:"Records keep arriving, and the running total keeps growing — but only in memory, on one worker.",
+      action:()=>{ ticking = true; } },
+    { caption:"Now Flink copies this exact number to durable storage. That's a checkpoint.",
+      action:()=>{ ticking = false; takeCheckpoint(); } },
+    { caption:"Records keep arriving again — the total keeps growing, still just in memory.",
+      action:()=>{ ticking = true; } },
+    { caption:"Another checkpoint — Flink does this continuously in the background, without pausing your data.",
+      action:()=>{ ticking = false; takeCheckpoint(); } },
+    { caption:"Now say that worker crashes. Everything that was only in memory — gone.",
+      action:()=>{ ticking = false; bigNumber.classList.add('failing'); } },
+    { caption:"Flink restarts the task and reloads the most recent checkpoint from storage \u2014 not from zero.",
+      action:()=>{ restoreFromCheckpoint(); } },
+    { caption:"Processing resumes from exactly that saved value. Nothing before it is lost, nothing after it gets counted twice. That's \u201Cexactly-once.\u201D",
+      action:()=>{ ticking = true; } },
+  ];
+  let stepIndex = 0;
+  function showStep(i){
+    const step = steps[i];
+    eventCaption.textContent = step.caption;
+    step.action();
+    setStepIndicator(i, steps.length);
+  }
+  showStep(0);
+  advanceWithinAct = function(){
+    if(stepIndex < steps.length-1){ stepIndex++; showStep(stepIndex); return true; }
+    return false;
+  };
+
+  cleanupFns.push(()=>clearInterval(tickTimer));
+}
+
+/* ---------- ACT 3: scale out ---------- */
+function initAct3(){
+  const lanesEl = document.getElementById('scale-lanes');
+  const captionEl = document.getElementById('scale-caption');
+  const kpuEl = document.getElementById('stat-kpu');
+  const throughputEl = document.getElementById('stat-throughput');
+  lanesEl.innerHTML = '';
+  throughputEl.textContent = '0';
+
+  let laneTimers = {};
+  let activeLanes = 0;
+  let eventCount = 0;
+
+  function makeLaneRow(i, locked){
+    const row = document.createElement('div');
+    row.className = 'lane-row' + (locked ? ' lane-locked' : '');
+    row.dataset.lane = i;
+    row.innerHTML =
+      '<div class="node" style="min-width:80px;">shard '+(i+1)+'</div>'+
+      '<div class="lane-track"></div>'+
+      '<div class="node" style="min-width:130px;">'+(locked ? 'needs resharding' : 'subtask '+(i+1))+'</div>';
+    return row;
+  }
+
+  function showLockedPreview(show){
+    let locked = lanesEl.querySelector('.lane-locked');
+    if(show && !locked){
+      locked = makeLaneRow(activeLanes, true);
+      lanesEl.appendChild(locked);
+    } else if(!show && locked){
+      lanesEl.removeChild(locked);
+    }
+  }
+
+  function setLaneCount(n){
+    showLockedPreview(false);
+    while(activeLanes > n){
+      activeLanes--;
+      if(laneTimers[activeLanes]){ clearInterval(laneTimers[activeLanes]); delete laneTimers[activeLanes]; }
+      const row = lanesEl.querySelector('[data-lane="'+activeLanes+'"]');
+      if(row) lanesEl.removeChild(row);
+    }
+    while(activeLanes < n){
+      const i = activeLanes;
+      const row = makeLaneRow(i, false);
+      lanesEl.appendChild(row);
+      const track = row.querySelector('.lane-track');
+      laneTimers[i] = setInterval(()=>{
+        flow(track, {duration:700 + Math.random()*400});
+        eventCount++;
+      }, 260 + Math.random()*140);
+      activeLanes++;
+    }
+  }
+
+  const throughputTimer = setInterval(()=>{
+    throughputEl.textContent = eventCount.toLocaleString();
+    eventCount = 0;
+  }, 1000);
+
+  // scripted narration sequence
+  const steps = [
+    { caption:"Two shards in the source stream \u2192 two parallel subtasks in Flink \u2192 two KPUs behind them. One-to-one.",
+      action:()=>{ setLaneCount(2); kpuEl.textContent='2'; } },
+    { caption:"Now say traffic on this stream picks up\u2026",
+      action:()=>{} },
+    { caption:"\u2026so Managed Service for Apache Flink adds a subtask and a KPU to match. Nobody provisioned a worker by hand.",
+      action:()=>{ setLaneCount(3); kpuEl.textContent='3'; } },
+    { caption:"That's what \u201Cauto scaling\u201D means here \u2014 more KPUs behind the scenes, not more servers for you to manage.",
+      action:()=>{} },
+    { caption:"The one manual lever: parallelism can't exceed the shard count. Need more than that? You reshard the stream itself.",
+      action:()=>{ showLockedPreview(true); } },
+  ];
+  let stepIndex = 0;
+  function showStep(i){
+    const step = steps[i];
+    captionEl.textContent = step.caption;
+    step.action();
+    setStepIndicator(i, steps.length);
+  }
+  showStep(0);
+  advanceWithinAct = function(){
+    if(stepIndex < steps.length-1){ stepIndex++; showStep(stepIndex); return true; }
+    return false;
+  };
+
+  cleanupFns.push(()=>{
+    Object.values(laneTimers).forEach(clearInterval);
+    clearInterval(throughputTimer);
+  });
+}
+
+/* ---------- ACT 4: where results go ---------- */
+function initAct4(){
+  const trackRaw = document.getElementById('track-raw');
+  const trackIn = document.getElementById('track-flink-in');
+  const trackOut = document.getElementById('track-flink-out');
+  const flinkBox = document.getElementById('flink-box');
+  const captionEl = document.getElementById('fanout-caption');
+
+  function flashFlink(){
+    flinkBox.animate([{boxShadow:'0 0 0 0 rgba(82,209,192,0.35)'},{boxShadow:'0 0 0 8px transparent'}], {duration:500});
+  }
+
+  const rawTimer = setInterval(()=>{ flow(trackRaw, {duration:900}); }, 380);
+  const inTimer = setInterval(()=>{
+    flow(trackIn, {duration:900, onArrive:flashFlink});
+  }, 380);
+  // aggregated output arrives far less often than raw input — that's the point: many raw events, one meaningful result
+  const outTimer = setInterval(()=>{ flow(trackOut, {duration:1000, color:'var(--warn)'}); }, 1600);
+
+  const steps = [
+    { caption:"The raw stream keeps flowing untouched \u2014 anyone who needs every record can still read it directly." },
+    { caption:"Flink reads that same stream and continuously computes something new \u2014 filtered, aggregated, joined." },
+    { caption:"Notice the pace: many raw events go in, far fewer results come out. That's aggregation \u2014 the output is smaller and already meaningful." },
+    { caption:"The result is written to its own stream \u2014 two streams now exist, for two different audiences." },
+    { caption:"In Flink SQL, this is one statement: INSERT INTO ticket_sales_aggregated SELECT store_id, SUM(amount) FROM orders_raw GROUP BY store_id, window." },
+  ];
+  let stepIndex = 0;
+  function showStep(i){
+    captionEl.textContent = steps[i].caption;
+    setStepIndicator(i, steps.length);
+  }
+  showStep(0);
+  advanceWithinAct = function(){
+    if(stepIndex < steps.length-1){ stepIndex++; showStep(stepIndex); return true; }
+    return false;
+  };
+
+  cleanupFns.push(()=>{clearInterval(rawTimer);clearInterval(inTimer);clearInterval(outTimer);});
+}
+
+showAct(0);
+</script>
+
+</body>
+</html>
