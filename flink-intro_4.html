@@ -42,6 +42,36 @@
     color:var(--dim);
     letter-spacing:.3px;
   }
+  .roadmap{
+    position:absolute;
+    top:24px;
+    right:64px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    z-index:5;
+  }
+  .roadmap .rnode{
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:10.5px;
+    color:var(--dim);
+    padding:3px 8px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--bg2);
+    transition:color .3s ease, border-color .3s ease, background .3s ease;
+    white-space:nowrap;
+  }
+  .roadmap .rnode.active{
+    color:var(--flow);
+    border-color:var(--flow-soft);
+    background:rgba(82,209,192,0.14);
+  }
+  .roadmap .rline{
+    width:12px;
+    height:1px;
+    background:var(--line);
+  }
   .act{
     display:none;
     flex-direction:column;
@@ -194,6 +224,7 @@
     font-family:"SFMono-Regular",Consolas,monospace;
     font-size:clamp(44px,6vw,72px);
     font-weight:700;
+    color:var(--flow);
     transition:color .2s;
   }
   .big-number.failing{color:var(--danger);}
@@ -319,14 +350,25 @@
 </head>
 <body>
 
-<div class="corner" id="corner">Act 1 of 5</div>
+<div class="corner" id="corner">Act 1 of 6</div>
+<div class="roadmap" id="roadmap">
+  <span class="rnode" data-key="ingest">ingest</span>
+  <span class="rline"></span>
+  <span class="rnode" data-key="query">query</span>
+  <span class="rline"></span>
+  <span class="rnode" data-key="state">state</span>
+  <span class="rline"></span>
+  <span class="rnode" data-key="scale">scale</span>
+  <span class="rline"></span>
+  <span class="rnode" data-key="sink">sink</span>
+</div>
 
 <div class="stage">
 
   <!-- ACT 0: batch vs streaming -->
   <div class="act active" id="act-0">
     <h1>Data doesn't wait.</h1>
-    <div class="sub">Streaming processes each record the instant it arrives — no waiting for the next run.</div>
+    <div class="sub">Streaming processes each record the instant it arrives — no waiting for the next run. That's Apache Flink: an open-source, distributed engine built for exactly this, which AWS runs for you as a managed service.</div>
     <div class="viz">
       <div class="split">
         <div class="half">
@@ -386,6 +428,7 @@ GROUP BY store</div>
       <div style="width:100%;">
         <div class="checkpoint-layout">
           <div class="state-column">
+            <div class="node" style="min-width:70px;padding:8px 10px;display:inline-block;margin-bottom:14px;">worker</div>
             <div class="state-label">Flink's memory, right now</div>
             <div class="state-caption">a running total of ticket sales</div>
             <div class="big-number" id="big-number">$0</div>
@@ -403,7 +446,7 @@ GROUP BY store</div>
   <!-- ACT 3: scale out -->
   <div class="act" id="act-3">
     <h1>Scaling maps to shards.</h1>
-    <div class="sub">Each shard in the source stream gets its own parallel Flink subtask. AWS provisions the compute behind them automatically.</div>
+    <div class="sub">Each shard — a partition of the source stream — gets its own parallel Flink subtask. AWS provisions the compute behind them automatically.</div>
     <div class="viz">
       <div style="width:100%;">
         <div class="lanes" id="scale-lanes"></div>
@@ -440,6 +483,7 @@ GROUP BY store</div>
           </div>
         </div>
         <div class="narrate" id="fanout-caption"></div>
+        <div class="sql-box" id="fanout-sql-box" style="display:none;margin-top:14px;"></div>
       </div>
     </div>
   </div>
@@ -482,6 +526,25 @@ function setStepIndicator(i, total){
   corner.textContent = cornerBase + (total>1 ? ' \u00b7 ' + (i+1) + '/' + total + ' \u00b7 press \u203a for next line' : '');
 }
 
+// the pipeline stages this deck walks through, in order \u2014 the roadmap strip
+// highlights whichever ones the current act covers, so every act visually
+// shows where it sits relative to the ones before and after it
+const ROADMAP_STAGES = ['ingest','query','state','scale','sink'];
+const ROADMAP_BY_ACT = {
+  0: [],
+  1: ['ingest','query'],
+  2: ['state'],
+  3: ['scale'],
+  4: ['sink'],
+  5: ROADMAP_STAGES,
+};
+function updateRoadmap(n){
+  const activeKeys = ROADMAP_BY_ACT[n] || [];
+  document.querySelectorAll('#roadmap .rnode').forEach(el=>{
+    el.classList.toggle('active', activeKeys.includes(el.dataset.key));
+  });
+}
+
 function showAct(n){
   clearTimers();
   advanceWithinAct = null;
@@ -490,6 +553,7 @@ function showAct(n){
   document.querySelectorAll('.dots span').forEach((d,i)=>d.classList.toggle('on', i===n));
   cornerBase = 'Act '+(n+1)+' of '+N_ACTS;
   document.getElementById('corner').textContent = cornerBase;
+  updateRoadmap(n);
   if(n===0) initAct0();
   if(n===1) initAct1();
   if(n===2) initAct2();
@@ -815,9 +879,15 @@ function initAct3(){
   }, 1000);
 
   // scripted narration sequence
+  let splitTimer = null;
   const steps = [
     { caption:"Two shards in the source stream \u2192 two parallel subtasks in Flink \u2192 two KPUs behind them. One-to-one.",
-      action:()=>{ setLaneCount(2); kpuEl.textContent='2'; } },
+      // opens on a single lane \u2014 the same one-worker shape from the checkpoint act \u2014
+      // then splits into two, so scaling reads as "one becomes many," not a fresh topic
+      action:()=>{
+        setLaneCount(1); kpuEl.textContent='1';
+        splitTimer = setTimeout(()=>{ setLaneCount(2); kpuEl.textContent='2'; }, 900);
+      } },
     { caption:"Now say traffic on this stream picks up\u2026",
       action:()=>{} },
     { caption:"\u2026so Managed Service for Apache Flink adds a subtask and a KPU to match. Nobody provisioned a worker by hand.",
@@ -843,6 +913,7 @@ function initAct3(){
   cleanupFns.push(()=>{
     Object.values(laneTimers).forEach(clearInterval);
     clearInterval(throughputTimer);
+    clearTimeout(splitTimer);
   });
 }
 
@@ -853,6 +924,8 @@ function initAct4(){
   const trackOut = document.getElementById('track-flink-out');
   const flinkBox = document.getElementById('flink-box');
   const captionEl = document.getElementById('fanout-caption');
+  const sqlBoxEl = document.getElementById('fanout-sql-box');
+  sqlBoxEl.style.display = 'none';
 
   function flashFlink(){
     flinkBox.animate([{boxShadow:'0 0 0 0 rgba(82,209,192,0.35)'},{boxShadow:'0 0 0 8px transparent'}], {duration:500});
@@ -865,16 +938,30 @@ function initAct4(){
   // aggregated output arrives far less often than raw input — that's the point: many raw events, one meaningful result
   const outTimer = setInterval(()=>{ flow(trackOut, {duration:1000, color:'var(--warn)'}); }, 1600);
 
+  const windowSql = "INSERT INTO ticket_sales_aggregated\n"+
+                     "SELECT store_id,\n"+
+                     "       SUM(amount) AS total_sales\n"+
+                     "FROM   orders_raw\n"+
+                     "GROUP BY store_id, TUMBLE(event_time, INTERVAL '1' MINUTE)";
+
   const steps = [
     { caption:"The raw stream keeps flowing untouched \u2014 anyone who needs every record can still read it directly." },
     { caption:"Flink reads that same stream and continuously computes something new \u2014 filtered, aggregated, joined." },
     { caption:"Notice the pace: many raw events go in, far fewer results come out. That's aggregation \u2014 the output is smaller and already meaningful." },
     { caption:"The result is written to its own stream \u2014 two streams now exist, for two different audiences." },
-    { caption:"In Flink SQL, this is one statement: INSERT INTO ticket_sales_aggregated SELECT store_id, SUM(amount) FROM orders_raw GROUP BY store_id, window." },
+    { caption:"One problem: \u201csum by store\u201d forever would just be one giant, ever-growing number. We need it to reset periodically \u2014 say, a fresh total every minute." },
+    { caption:"That's a window: Flink groups events into fixed time buckets and re-runs the aggregation once per bucket, instead of running it once, forever, over everything. Here's that same idea, tumbling every 1 minute, as one Flink SQL statement:",
+      sql: windowSql },
   ];
   let stepIndex = 0;
   function showStep(i){
     captionEl.textContent = steps[i].caption;
+    if(steps[i].sql){
+      sqlBoxEl.textContent = steps[i].sql;
+      sqlBoxEl.style.display = 'block';
+    } else {
+      sqlBoxEl.style.display = 'none';
+    }
     setStepIndicator(i, steps.length);
   }
   showStep(0);
