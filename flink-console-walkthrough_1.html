@@ -227,6 +227,38 @@
     margin-top:12px;
   }
   .callout b{color:#8a6100;}
+  .accordion-toggle{
+    cursor:pointer;
+    color:var(--aws-navy);
+    font-weight:600;
+    font-size:13px;
+    display:inline-block;
+    user-select:none;
+  }
+  .accordion-toggle:hover{text-decoration:underline;}
+  .accordion-body{
+    display:none;
+    margin-top:8px;
+    font-size:13px;
+    color:var(--text-muted);
+    padding-left:2px;
+  }
+  .accordion-body.open{display:block;}
+  .guess-feedback{margin-left:10px;font-weight:600;font-size:12px;}
+  .guess-feedback.correct{color:var(--green);}
+  .guess-feedback.wrong{color:var(--text-muted);font-weight:400;}
+  .ddl-new{color:var(--green);font-weight:600;}
+  .poison-row{cursor:pointer;}
+  .validation-error{
+    display:none;
+    background:#fbe9e7;
+    border:1px solid #f3b7ac;
+    color:#9c2b19;
+    padding:8px 10px;
+    border-radius:4px;
+    font-size:12.5px;
+    margin-top:10px;
+  }
 </style>
 </head>
 <body>
@@ -305,6 +337,10 @@
         <select disabled><option>default</option></select>
         <div class="hint">Just metadata storage for your table schemas — not a data warehouse, don't over-think it.</div>
 
+        <label>Apache Flink version <span class="req">*</span></label>
+        <select disabled><option>Apache Flink version 1.20 (Recommended)</option></select>
+        <div class="hint">Picked once, at creation — it's why the metric names and connector options you'll see later are version-specific.</div>
+
         <label>Source</label>
         <div class="radio-row">
           <label><input type="radio" name="src" checked disabled> Kinesis Data Streams</label>
@@ -315,9 +351,26 @@
 
     <!-- SCREEN 3: Zeppelin live query -->
     <div class="screen" id="screen-3">
-      <h1>MyNotebook — Apache Zeppelin</h1>
+      <h1>MyNotebook — Apache Zeppelin <span class="tag tag-green" style="font-weight:600;">Flink 1.20</span></h1>
       <div class="sub">Run a query, watch results arrive as the stream moves.</div>
       <div class="card">
+        <h2>Step 1 · declare the source table</h2>
+        <div class="hint" style="margin-bottom:8px;">Flink SQL can't query a stream until a table is declared on top of it. This DDL is also where the poison-pill defense lives — keep an eye on the <span class="mono">format</span> options.</div>
+        <div class="zeppelin-box">
+<span class="kw">%flink.ssql</span>(type=update)<br>
+<span class="kw">CREATE TABLE</span> market_ticks (<br>
+&nbsp;&nbsp;ticker VARCHAR,<br>
+&nbsp;&nbsp;price DOUBLE,<br>
+&nbsp;&nbsp;event_time VARCHAR<br>
+) <span class="kw">WITH</span> (<br>
+&nbsp;&nbsp;<span class="str">'connector'</span> = <span class="str">'kinesis'</span>,<br>
+&nbsp;&nbsp;<span class="str">'stream'</span> = <span class="str">'market-ticks-input'</span>,<br>
+&nbsp;&nbsp;<span class="str">'aws.region'</span> = <span class="str">'us-east-1'</span>,<br>
+&nbsp;&nbsp;<span class="str">'scan.stream.initpos'</span> = <span class="str">'LATEST'</span>,<br>
+&nbsp;&nbsp;<span class="str">'format'</span> = <span class="str">'json'</span><br>
+);
+        </div>
+        <h2 style="margin-top:16px;">Step 2 · query it, continuously</h2>
         <div class="zeppelin-box">
 <span class="kw">%flink.ssql</span>(type=update)<br>
 <span class="kw">SELECT</span> ticker, price, event_time<br>
@@ -341,20 +394,24 @@
       <div class="sub">This is the "serverless" part — AWS adjusts compute to match load.</div>
       <div class="row2">
         <div class="card">
-          <h2>Parallelism</h2>
-          <div class="metric-box">
-            <div class="metric-label">Current parallelism</div>
-            <div class="metric-value">4</div>
-          </div>
-          <div class="hint" style="margin-top:8px;">How many parallel tasks run. Benefits from multiple shards, KeyBy operations, or multiple window operators.</div>
+          <h2>Parallelism configuration</h2>
+          <label>Parallelism</label>
+          <input type="text" value="4" readonly>
+          <div class="hint">How many parallel tasks run. Benefits from multiple shards, KeyBy operations, or multiple window operators — can't usefully exceed the source's shard count without resharding.</div>
+          <label style="margin-top:14px;">Parallelism per KPU</label>
+          <input type="text" value="1" readonly>
+          <div class="hint">Default is 1. Raise it only if an operator needs more memory per subtask than one KPU provides — that trades off KPU count for per-task headroom.</div>
         </div>
         <div class="card">
-          <h2>KPUs (Kinesis Processing Units)</h2>
-          <div class="metric-box">
-            <div class="metric-label">Auto-scaling</div>
-            <div class="metric-value tag-green" style="color:var(--green);font-size:16px;">Enabled ✓</div>
+          <h2>Scaling</h2>
+          <div class="radio-row" style="margin-top:0;">
+            <label><input type="checkbox" checked disabled> Enable automatic scaling</label>
           </div>
-          <div class="hint" style="margin-top:8px;">Each KPU bundles compute + memory. AWS scales the count up or down automatically as source throughput changes — this is what you're paying for, and only for what's running.</div>
+          <div class="hint" style="margin-top:8px;">Each KPU bundles compute + memory. AWS scales the KPU count up or down automatically as source throughput changes — this is what you're paying for, and only for what's running.</div>
+          <div class="metric-box" style="margin-top:14px;">
+            <div class="metric-label">KPUs (current)</div>
+            <div class="metric-value">4</div>
+          </div>
         </div>
       </div>
     </div>
@@ -375,23 +432,89 @@
             <div class="hint">Durable state · autoscaled · checkpointed</div>
           </div>
         </div>
-        <div style="margin-top:16px;"><span class="btn btn-primary">Build and export</span></div>
+        <table style="margin-top:18px;">
+          <tr><th style="width:26px;">#</th><th>From the notebook's <span class="mono">Actions</span> menu</th></tr>
+          <tr><td>1</td><td><b>Build and Export</b> — packages the notebook's code and pushes it to the S3 bucket set under "Application code location."</td></tr>
+          <tr><td>2</td><td><b>Deploy Zeppelin Note as Kinesis streaming application</b> — then <b>Deploy via AWS Console</b>.</td></tr>
+          <tr><td>3</td><td>Lands on a pre-populated <b>Create streaming application</b> page — name, parallelism, code location, Glue DB and IAM role are already filled in from the notebook. Snapshots are on by default.</td></tr>
+        </table>
+        <div class="hint" style="margin-top:8px;">Nothing here is re-typed — the whole point of the promotion path is that the interactive session and the durable app share one definition.</div>
+        <div style="margin-top:16px;"><span class="btn btn-primary">Build and Export</span></div>
       </div>
     </div>
 
     <!-- SCREEN 6: poison pill practice -->
     <div class="screen" id="screen-6">
-      <h1>Practice: spot the poison pill</h1>
-      <div class="sub">One of these records will break a naive deserializer. Which one, and why?</div>
+      <h1>Practice: find &amp; fix the poison pill</h1>
+      <div class="sub">This application is already unhealthy. Diagnose it, then fix it in the config — the same clicks as the real console.</div>
+
       <div class="card">
+        <h2>1 · Which record is breaking it?</h2>
         <div class="poison-row poison-ok">{"ticker": "AMZN", "price": 231.55, "event_time": "2026-09-02T10:01:02Z"}</div>
         <div class="poison-row poison-ok">{"ticker": "MSFT", "price": 512.10, "event_time": "2026-09-02T10:01:03Z"}</div>
         <div class="poison-row poison-ok" id="poison-target">{"ticker": "GOOG", "price": "n/a", event_time: 2026-09-02T10:01:04Z}</div>
         <div class="poison-row poison-ok">{"ticker": "AAPL", "price": 228.90, "event_time": "2026-09-02T10:01:05Z"}</div>
-        <div style="margin-top:12px;"><span class="btn btn-secondary" id="reveal-btn">Reveal answer</span></div>
-        <div class="reveal" id="reveal-box">
-          The third record: <span class="mono">price</span> is a string instead of a number, and the field name <span class="mono">event_time</span> is missing its quotes — invalid JSON. A naive deserializer throws on this and can stall the whole task.
-          <br><br>The fix pattern: catch deserialization failures and route the bad record to a side output (a "dead-letter" stream) instead of letting it crash the job — the good records keep flowing.
+        <div class="hint" id="guess-hint" style="margin-top:8px;">Click a record.</div>
+      </div>
+
+      <div class="card">
+        <h2>2 · Application health <span class="tag tag-orange" id="app-status-tag" style="margin-left:8px;">RESTARTING</span></h2>
+        <div class="tile-row">
+          <div class="metric-box">
+            <div class="metric-label">numRecordsInPerSecond</div>
+            <div class="metric-value" id="metric-rps">0</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">FullRestarts</div>
+            <div class="metric-value" id="metric-restarts">2</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">numberOfFailedCheckpoints</div>
+            <div class="metric-value" id="metric-failck">2</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <span class="accordion-toggle" id="exc-toggle" data-target="exc-body">▸ View exception (Apache Flink Dashboard → job → Exceptions)</span>
+          <div class="accordion-body" id="exc-body">
+            <div class="zeppelin-box" style="font-size:12px;">
+org.apache.flink.formats.json.JsonRowDataDeserializationSchema:<br>
+&nbsp;&nbsp;Failed to deserialize JSON row.<br>
+Caused by: com.fasterxml.jackson.core.JsonParseException:<br>
+&nbsp;&nbsp;Unexpected character ('e'): was expecting double-quote to start field name
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>3 · Fix it — table configuration</h2>
+        <div class="zeppelin-box">
+<span class="kw">CREATE TABLE</span> market_ticks (…) <span class="kw">WITH</span> (<br>
+<span id="ddl-options"></span><br>
+);
+        </div>
+        <div class="validation-error" id="validation-error"></div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:12px;">
+          <input type="checkbox" id="fix-ignore"> Add <span class="mono">'json.ignore-parse-errors' = 'true'</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;">
+          <input type="checkbox" id="fix-failmissing"> Add <span class="mono">'json.fail-on-missing-field' = 'true'</span>
+        </label>
+        <div style="margin-top:12px;">
+          <span class="btn btn-primary" id="apply-fix-btn">Update application</span>
+          <span class="hint" id="apply-result" style="margin-left:8px;"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div><span class="accordion-toggle" id="why-toggle" data-target="why-body">▸ Why does it loop forever instead of just skipping the bad record?</span>
+          <div class="accordion-body" id="why-body">Managed Service for Apache Flink restarts a failed job from its last checkpoint to preserve exactly-once semantics — but that checkpoint's stream position is still sitting right before the poison pill. The job replays the same record, fails the same way, and restarts again.</div>
+        </div>
+        <div style="margin-top:10px;"><span class="accordion-toggle" id="stuck-toggle" data-target="stuck-body">▸ Already stuck in the loop right now — how do you get out?</span>
+          <div class="accordion-body" id="stuck-body">Fixing the DDL won't help an app that's already restarting from a bad checkpoint. <b>Stop</b> it, then <b>Run</b> again choosing a fresh stream starting position (<span class="mono">LATEST</span>, or <span class="mono">AT_TIMESTAMP</span> just past the bad record) instead of restoring the last snapshot.</div>
+        </div>
+        <div style="margin-top:10px;"><span class="accordion-toggle" id="ds-toggle" data-target="ds-body">▸ Using the DataStream API instead of SQL?</span>
+          <div class="accordion-body" id="ds-body"><span class="mono">DeserializationSchema</span> can't emit to a side output. The pattern there is <span class="mono">deserialize()</span> returning <span class="mono">null</span> to drop silently, or wrapping results in an <span class="mono">Either&lt;Good,Bad&gt;</span> type and splitting downstream with a <span class="mono">ProcessFunction</span> + <span class="mono">OutputTag</span> into a dead-letter stream.</div>
         </div>
       </div>
     </div>
@@ -410,6 +533,16 @@
 const totalScreens = 7;
 let current = 0;
 let queryInterval = null;
+let healthTimer = null;
+let health = { rps:0, restarts:2, failedCk:2, fixed:false, tick:0 };
+
+const ddlBaseOptions = [
+  "'connector' = 'kinesis'",
+  "'stream' = 'market-ticks-input'",
+  "'aws.region' = 'us-east-1'",
+  "'scan.stream.initpos' = 'LATEST'",
+  "'format' = 'json'"
+];
 
 const tickers = ["AMZN","MSFT","AAPL","GOOG","NVDA","TSLA"];
 function randomRow(){
@@ -433,6 +566,79 @@ function showScreen(n){
   document.getElementById("next-btn").textContent = n===totalScreens-1 ? "Restart ↺" : "Next →";
 
   clearInterval(queryInterval); queryInterval = null;
+  clearInterval(healthTimer); healthTimer = null;
+  if(n===6) resetPoisonScreen();
+}
+
+function renderDDL(){
+  const extra = [];
+  if(document.getElementById("fix-ignore").checked) extra.push("'json.ignore-parse-errors' = 'true'");
+  if(document.getElementById("fix-failmissing").checked) extra.push("'json.fail-on-missing-field' = 'true'");
+  const lines = ddlBaseOptions.concat(extra);
+  document.getElementById("ddl-options").innerHTML = lines.map((l,i)=>{
+    const isNew = i >= ddlBaseOptions.length;
+    const comma = i < lines.length-1 ? "," : "";
+    return "&nbsp;&nbsp;<span"+(isNew?' class="ddl-new"':'')+">"+l+"</span>"+comma;
+  }).join("<br>");
+}
+
+function renderHealth(){
+  const rpsEl = document.getElementById("metric-rps");
+  const restartsEl = document.getElementById("metric-restarts");
+  const failckEl = document.getElementById("metric-failck");
+  const tag = document.getElementById("app-status-tag");
+  rpsEl.textContent = health.rps;
+  restartsEl.textContent = health.restarts;
+  failckEl.textContent = health.failedCk;
+  if(health.fixed){
+    tag.textContent = "RUNNING";
+    tag.className = "tag tag-green";
+    rpsEl.style.color = "var(--green)";
+    restartsEl.style.color = "var(--text-muted)";
+    failckEl.style.color = "var(--text-muted)";
+  } else {
+    tag.textContent = health.tick % 2 === 0 ? "RESTARTING" : "FAILED";
+    tag.className = "tag tag-orange";
+    rpsEl.style.color = health.rps===0 ? "var(--red)" : "var(--text)";
+    restartsEl.style.color = "var(--red)";
+    failckEl.style.color = "var(--red)";
+  }
+}
+
+function startHealthSim(){
+  clearInterval(healthTimer);
+  health = { rps:2, restarts:2, failedCk:2, fixed:false, tick:0 };
+  renderHealth();
+  healthTimer = setInterval(()=>{
+    health.tick++;
+    if(!health.fixed){
+      health.rps = (health.tick % 3 === 0) ? Math.floor(Math.random()*5) : 0;
+      if(health.tick % 3 === 0){ health.restarts++; health.failedCk++; }
+    } else {
+      health.rps = Math.min(58, health.rps + 5 + Math.floor(Math.random()*7));
+    }
+    renderHealth();
+  }, 1000);
+}
+
+function resetPoisonScreen(){
+  document.querySelectorAll("#screen-6 .poison-row").forEach(r=>{
+    r.classList.remove("poison-bad");
+    r.classList.add("poison-ok");
+    const fb = r.querySelector(".guess-feedback");
+    if(fb) fb.remove();
+  });
+  document.getElementById("guess-hint").textContent = "Click a record.";
+  document.getElementById("fix-ignore").checked = false;
+  document.getElementById("fix-failmissing").checked = false;
+  document.getElementById("validation-error").style.display = "none";
+  document.getElementById("apply-result").textContent = "";
+  document.querySelectorAll("#screen-6 .accordion-body").forEach(b=>b.classList.remove("open"));
+  document.querySelectorAll("#screen-6 .accordion-toggle").forEach(t=>{
+    t.textContent = "▸ " + t.dataset.label;
+  });
+  renderDDL();
+  startHealthSim();
 }
 
 function startLiveQuery(){
@@ -471,11 +677,61 @@ document.getElementById("tile-app").addEventListener("click", ()=>{
   document.getElementById("tile-studio").classList.remove("selected");
 });
 document.getElementById("run-query").addEventListener("click", startLiveQuery);
-document.getElementById("reveal-btn").addEventListener("click", ()=>{
-  const target = document.getElementById("poison-target");
-  target.classList.remove("poison-ok");
-  target.classList.add("poison-bad");
-  document.getElementById("reveal-box").style.display = "block";
+
+document.querySelectorAll("#screen-6 .poison-row").forEach(row=>{
+  row.addEventListener("click", ()=>{
+    const correct = row.id === "poison-target";
+    const existing = row.querySelector(".guess-feedback");
+    if(existing) existing.remove();
+    const fb = document.createElement("span");
+    fb.className = "guess-feedback " + (correct ? "correct" : "wrong");
+    fb.textContent = correct
+      ? "✓ this is it — unquoted field name (invalid JSON) + price is a string, not DOUBLE"
+      : "✗ parses fine";
+    row.appendChild(fb);
+    if(correct){
+      row.classList.remove("poison-ok");
+      row.classList.add("poison-bad");
+      document.getElementById("guess-hint").textContent = "Correct. Now diagnose it below like you would in the console.";
+    }
+  });
+});
+
+document.querySelectorAll("#screen-6 .accordion-toggle").forEach(t=>{
+  t.dataset.label = t.textContent.replace(/^▸ /,"");
+  t.addEventListener("click", ()=>{
+    const body = document.getElementById(t.dataset.target);
+    const isOpen = body.classList.toggle("open");
+    t.textContent = (isOpen ? "▾ " : "▸ ") + t.dataset.label;
+  });
+});
+
+document.getElementById("fix-ignore").addEventListener("change", renderDDL);
+document.getElementById("fix-failmissing").addEventListener("change", renderDDL);
+
+document.getElementById("apply-fix-btn").addEventListener("click", ()=>{
+  const ignore = document.getElementById("fix-ignore").checked;
+  const failmissing = document.getElementById("fix-failmissing").checked;
+  const err = document.getElementById("validation-error");
+  const result = document.getElementById("apply-result");
+
+  if(ignore && failmissing){
+    err.style.display = "block";
+    err.innerHTML = "<b>ValidationException:</b> JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.";
+    result.textContent = "";
+    return;
+  }
+  err.style.display = "none";
+
+  if(ignore){
+    health.fixed = true;
+    result.textContent = "✓ Update applied — restarting clean, skipping the unparseable row.";
+    result.style.color = "var(--green)";
+  } else {
+    health.fixed = false;
+    result.textContent = "Update applied, but the app is still restarting — this option alone doesn't address the parse failure.";
+    result.style.color = "var(--red)";
+  }
 });
 
 showScreen(0);

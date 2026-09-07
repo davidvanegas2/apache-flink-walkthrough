@@ -288,7 +288,7 @@
     </section>
 
     <div class="part-title">Part 2 — flink-console-walkthrough.html</div>
-    <div class="part-sub">~4:00 total.</div>
+    <div class="part-sub">~4:15 total.</div>
 
     <section class="beat" id="c1">
       <h3>Screen 1 <span class="time-tag">~25s</span></h3>
@@ -307,13 +307,14 @@
     <section class="beat" id="c3">
       <h3>Screen 3 <span class="time-tag">~30s</span></h3>
       <div class="onscreen">Create Studio notebook</div>
-      <div class="verbatim">"This wizard really only needs three things from us: a name, an IAM role, and a Glue database — and that Glue database is just metadata storage, nothing more."</div>
+      <div class="verbatim">"This wizard really only needs a few things from us: a name, an IAM role, a Glue database — just metadata storage, nothing more — and which Apache Flink version to run. That version choice matters later, since it's what the connector options and metric names are tied to."</div>
     </section>
 
     <section class="beat" id="c4">
-      <h3>Screen 4 <span class="time-tag">~45s · let it breathe</span></h3>
+      <h3>Screen 4 <span class="time-tag">~50s · let it breathe</span></h3>
       <div class="onscreen">MyNotebook — Apache Zeppelin</div>
-      <div class="verbatim">"Here's the query we're about to run."</div>
+      <div class="verbatim">"Before Flink can query this stream at all, we have to declare a table on top of it — that's this CREATE TABLE. Notice it's not creating the Kinesis stream, just describing one that already exists."</div>
+      <div class="verbatim">"Now here's the query we're about to run."</div>
       <span class="cue-action">→ click Run, then go quiet for 2–3 seconds</span>
       <div class="verbatim">"And there it is — real rows landing as the stream moves."</div>
     </section>
@@ -327,16 +328,20 @@
     <section class="beat" id="c6">
       <h3>Screen 6 <span class="time-tag">~20s</span></h3>
       <div class="onscreen">Promote to a durable application</div>
-      <div class="verbatim">"One click turns everything we just did interactively into a durable, autoscaled, checkpointed production application."</div>
+      <div class="verbatim">"A couple of clicks in the notebook's Actions menu — Build and Export, then Deploy — turns everything we just did interactively into a durable, autoscaled, checkpointed production application. Nothing gets re-typed; it's pre-populated from the notebook."</div>
     </section>
 
     <section class="beat" id="c7">
-      <h3>Screen 7 <span class="time-tag">~65s · make it interactive</span></h3>
-      <div class="onscreen">Practice: spot the poison pill</div>
-      <span class="cue-action">→ ask the group, then wait ~20–30s before revealing</span>
-      <div class="verbatim">"Take a look at these four records — which one do you think is going to break this, and why?"</div>
-      <span class="cue-action">→ after reveal</span>
-      <div class="verbatim">"The fix here isn't to crash the job — it's to send that bad record somewhere else, a dead-letter stream, and keep everything else flowing."</div>
+      <h3>Screen 7 <span class="time-tag">~90s · make it interactive, let them click</span></h3>
+      <div class="onscreen">Practice: find &amp; fix the poison pill — records → health tiles → config checkboxes → Update</div>
+      <span class="cue-action">→ ask the group, click the record they name</span>
+      <div class="verbatim">"Take a look at these four records — which one do you think is breaking this?"</div>
+      <span class="cue-action">→ point at the health tiles already flatlined/climbing below</span>
+      <div class="verbatim">"And here's what that actually looks like in the console — records per second at zero, restarts climbing. It's stuck replaying that same bad record from the last checkpoint, failing, and restarting, forever."</div>
+      <span class="cue-action">→ check the first box, click Update — metrics recover live</span>
+      <div class="verbatim">"The fix isn't to crash the job — it's one option on the table's format telling it to skip rows it can't parse. Watch the app come back."</div>
+      <span class="cue-action">→ optional, if time: also check the second box to show the validation error</span>
+      <div class="verbatim">"And here's a trap — this other option looks related, but combine the two and the console won't even let you deploy it."</div>
       <div class="verbatim">"That's the engine, and that's the console. Questions?"</div>
     </section>
 
