@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Presenter notes — Apache Flink session</title>
+<style>
+  :root{
+    --bg:#faf8f4;
+    --panel:#ffffff;
+    --line:#e7e2d8;
+    --text:#232323;
+    --dim:#726b5c;
+    --accent:#4a3f7a;
+    --accent-soft:#efecf7;
+    --tag:#8a6d3b;
+    --tag-bg:#f7efdf;
+    --quote-bg:#fff9ef;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    line-height:1.5;
+  }
+  .topbar{
+    position:sticky;
+    top:0;
+    z-index:20;
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    padding:14px 26px;
+    display:flex;
+    align-items:center;
+    gap:18px;
+  }
+  .topbar h1{font-size:16px;margin:0;font-weight:700;flex:0 0 auto;}
+  .topbar .spacer{flex:1;}
+  .timer{display:flex;align-items:center;gap:10px;font-family:"SFMono-Regular",Consolas,monospace;}
+  .timer .clock{font-size:26px;font-weight:700;min-width:88px;text-align:center;color:#1d8102;transition:color .3s;}
+  .timer .clock.warn{color:#b8860b;}
+  .timer .clock.over{color:#c0392b;}
+  .timer button{border:1px solid var(--line);background:#fff;padding:6px 12px;border-radius:5px;font-size:13px;cursor:pointer;color:var(--text);}
+  .timer button:hover{background:#f2f0ea;}
+  .layout{display:flex;max-width:1180px;margin:0 auto;}
+  .toc{width:230px;flex:0 0 auto;position:sticky;top:64px;align-self:flex-start;padding:26px 14px 26px 26px;font-size:13px;max-height:calc(100vh - 64px);overflow-y:auto;}
+  .toc .toc-part{font-weight:700;color:var(--accent);margin:14px 0 6px 0;text-transform:uppercase;font-size:11px;letter-spacing:.4px;}
+  .toc a{display:block;padding:4px 8px;color:var(--dim);text-decoration:none;border-radius:4px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);}
+  .main{flex:1;padding:26px 40px 90px 26px;max-width:820px;}
+  .checklist{background:var(--accent-soft);border:1px solid #d8d2ec;border-radius:8px;padding:16px 20px;margin-bottom:22px;}
+  .checklist h2{font-size:14px;margin:0 0 10px 0;color:var(--accent);}
+  .checklist ul{margin:0;padding-left:18px;font-size:13.5px;}
+  .checklist li{margin-bottom:5px;}
+  .legend{
+    display:flex;
+    gap:18px;
+    font-size:12.5px;
+    color:var(--dim);
+    margin-bottom:30px;
+    padding:10px 14px;
+    background:#fff;
+    border:1px dashed var(--line);
+    border-radius:6px;
+  }
+  .legend .key{display:flex;align-items:center;gap:6px;}
+  .legend .swatch-quote{width:14px;height:14px;border-radius:3px;background:var(--quote-bg);border-left:3px solid var(--accent);flex:0 0 auto;}
+  .legend .swatch-action{width:14px;height:14px;border-radius:8px;background:var(--tag-bg);flex:0 0 auto;}
+  .part-title{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin:38px 0 4px 0;padding-bottom:8px;border-bottom:2px solid var(--accent);}
+  .part-sub{font-size:13px;color:var(--dim);margin-bottom:18px;}
+  section.beat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px 22px;margin-bottom:16px;scroll-margin-top:70px;}
+  section.beat h3{font-size:15.5px;margin:0 0 2px 0;display:flex;align-items:baseline;gap:10px;}
+  section.beat .time-tag{font-size:11px;font-weight:600;color:var(--tag);background:var(--tag-bg);padding:2px 7px;border-radius:10px;white-space:nowrap;}
+  section.beat .onscreen{font-size:12.5px;color:var(--dim);font-style:italic;margin:2px 0 12px 0;}
+  .step{margin-bottom:14px;}
+  .step:last-child{margin-bottom:0;}
+  .step .step-caption{font-size:11.5px;color:var(--dim);margin-bottom:6px;font-family:"SFMono-Regular",Consolas,monospace;}
+  .cue-action{
+    display:inline-block;
+    font-size:11px;
+    font-weight:700;
+    color:var(--tag);
+    background:var(--tag-bg);
+    padding:3px 9px;
+    border-radius:10px;
+    margin-bottom:7px;
+    letter-spacing:.2px;
+  }
+  .verbatim{
+    background:var(--quote-bg);
+    border-left:3px solid var(--accent);
+    border-radius:4px;
+    padding:10px 16px 10px 38px;
+    position:relative;
+    font-size:15px;
+    line-height:1.55;
+    color:#2a2320;
+    margin:0 0 6px 0;
+  }
+  .verbatim::before{
+    content:"\201C";
+    position:absolute;
+    left:9px;top:-2px;
+    font-size:34px;
+    color:var(--accent);
+    font-family:Georgia,serif;
+    opacity:.45;
+  }
+  .verbatim:last-child{margin-bottom:0;}
+  .summary-box{background:#fff;border:2px solid var(--accent);border-radius:8px;padding:18px 22px;margin:36px 0;}
+  .summary-box h2{font-size:14px;margin:0 0 10px 0;color:var(--accent);}
+  .summary-box ol{margin:0;padding-left:20px;font-size:13.5px;}
+  .summary-box li{margin-bottom:6px;}
+  footer{color:var(--dim);font-size:12.5px;padding:20px 0 60px 0;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Presenter notes — Apache Flink</h1>
+  <div class="spacer"></div>
+  <div class="timer">
+    <span class="clock" id="clock">00:00</span>
+    <button id="timer-toggle">Start</button>
+    <button id="timer-reset">Reset</button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <div class="toc-part">Part 1 — Intro</div>
+    <a href="#i1">Act 1 · Data doesn't wait</a>
+    <a href="#i2">Act 2 · What happens to a record</a>
+    <a href="#i3">Act 3 · How a checkpoint works</a>
+    <a href="#i4">Act 4 · Scaling maps to shards</a>
+    <a href="#i5">Act 5 · One stream, new stream</a>
+    <a href="#i6">Act 6 · Closing bridge</a>
+    <div class="toc-part">Part 2 — Console</div>
+    <a href="#c1">1 · Applications dashboard</a>
+    <a href="#c2">2 · Kinesis Data Streams</a>
+    <a href="#c3">3 · Create notebook</a>
+    <a href="#c4">4 · Zeppelin / live query</a>
+    <a href="#c5">5 · Scaling &amp; parallelism</a>
+    <a href="#c6">6 · Deploy</a>
+    <a href="#c7">7 · Poison pill practice</a>
+    <a href="#summary" style="margin-top:8px;font-weight:600;">↳ If you lose your place</a>
+  </nav>
+
+  <div class="main">
+
+    <div class="checklist">
+      <h2>Before you go live</h2>
+      <ul>
+        <li>Open both HTML files as tabs in the <b>same</b> Chrome window — in Meet, share that <b>window</b>, not your whole screen.</li>
+        <li>Keep this notes page in a different window — nobody in the meeting ever sees it.</li>
+        <li>Say the disclaimer once, right at the top of the console section: it's a simulated console, nobody needs to deploy real resources for their own topic.</li>
+        <li>Advance both files with → / space / the on-screen arrows.</li>
+      </ul>
+    </div>
+
+    <div class="legend">
+      <div class="key"><span class="swatch-quote"></span> quoted text = read it out loud, word for word if you want</div>
+      <div class="key"><span class="swatch-action"></span> small tag = something to do or point at, never say it out loud</div>
+    </div>
+
+    <div class="part-title">Part 1 — flink-intro.html</div>
+    <div class="part-sub">Open this file first. ~4:30 total.</div>
+
+    <section class="beat" id="i1">
+      <h3>Act 1 <span class="time-tag">~25s · no clicks</span></h3>
+      <div class="onscreen">"Data doesn't wait." — batch pile + countdown clock vs. streaming dots + live counter</div>
+      <div class="verbatim">"Batch systems wait for the next scheduled run before they look at anything. Streaming looks at each record the moment it shows up — that's the whole difference."</div>
+    </section>
+
+    <section class="beat" id="i2">
+      <h3>Act 2 <span class="time-tag">~45s · 4 clicks</span></h3>
+      <div class="onscreen">"What happens to a record?" — records landing → SQL box → live totals table</div>
+      <div class="step">
+        <div class="step-caption">① records landing</div>
+        <div class="verbatim">"Every one of these is a real event — just a JSON row, arriving on its own."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">② SQL running continuously</div>
+        <div class="verbatim">"This query never stops running. It's not asking a question once — it just sits there, permanently, waiting for the next row."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">③ totals updating</div>
+        <span class="cue-action">→ point at NYC-01's row</span>
+        <div class="verbatim">"Watch this number specifically — every time a valid record for that store lands, it updates immediately."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">④ malformed record filtered</div>
+        <div class="verbatim">"That one right there never even reaches the total — it gets dropped before it can corrupt anything. Keep that in mind, we'll see this exact idea again later."</div>
+      </div>
+    </section>
+
+    <section class="beat" id="i3">
+      <h3>Act 3 <span class="time-tag">~90s · 7 clicks — don't rush this one</span></h3>
+      <div class="onscreen">"How a checkpoint works." — running total (Flink's memory) + a growing list of saved checkpoints</div>
+      <div class="step">
+        <div class="step-caption">① growing total</div>
+        <div class="verbatim">"Right now, this number only exists in one place — in memory, on one machine. If that machine goes down, this number goes with it."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">② first checkpoint</div>
+        <div class="verbatim">"Flink just copied that exact number somewhere durable. That's called a checkpoint, and it happens automatically, every few seconds, without anyone doing anything."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">③ growing again</div>
+        <div class="verbatim">"Nothing paused — the data kept moving the entire time that checkpoint was being saved."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">④ second checkpoint</div>
+        <span class="cue-action">→ point at the list</span>
+        <div class="verbatim">"There's a second checkpoint now. Flink just keeps doing this, continuously, in the background."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">⑤ crash</div>
+        <div class="verbatim">"Now here's the failure case: the worker holding this number just crashed."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">⑥ restore</div>
+        <div class="verbatim">"Flink doesn't start over from zero — it goes and reloads the last checkpoint it saved."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">⑦ resume — exactly-once</div>
+        <div class="verbatim">"That's the whole point: nothing before the checkpoint is lost, and nothing after it gets counted twice. That's what 'exactly-once' actually means."</div>
+      </div>
+    </section>
+
+    <section class="beat" id="i4">
+      <h3>Act 4 <span class="time-tag">~50s · 5 clicks</span></h3>
+      <div class="onscreen">"Scaling maps to shards." — shard/subtask lane pairs + KPU count</div>
+      <div class="step">
+        <div class="step-caption">① 2 shards / 2 subtasks</div>
+        <div class="verbatim">"Two shards on the stream, two parallel subtasks in Flink, two KPUs behind them — that's a one-to-one relationship."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">② traffic picks up</div>
+        <div class="verbatim">"Now say traffic on this stream picks up."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">③ 3rd subtask + KPU appears</div>
+        <div class="verbatim">"Flink just added a third subtask and a third KPU to handle it — and nobody on our team provisioned anything by hand."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">④ auto-scaling framing</div>
+        <div class="verbatim">"That's what auto-scaling actually means here: more compute behind the scenes, not more servers for us to manage."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">⑤ resharding lever</div>
+        <div class="verbatim">"There's one thing that's still on us, though: parallelism can't go higher than the number of shards. If we need more than that, we have to reshard the stream ourselves."</div>
+      </div>
+    </section>
+
+    <section class="beat" id="i5">
+      <h3>Act 5 <span class="time-tag">~50s · 5 clicks</span></h3>
+      <div class="onscreen">"One stream in, a new stream out." — raw stream forks to "other consumers" and to Flink → new output stream</div>
+      <div class="step">
+        <div class="step-caption">① raw stream untouched</div>
+        <div class="verbatim">"The raw stream keeps flowing exactly like it did before — anyone else who needs those raw events can still read them directly."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">② Flink computes something new</div>
+        <div class="verbatim">"Flink is reading that same stream, and continuously computing something new out of it."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">③ pace mismatch</div>
+        <span class="cue-action">→ point at the two speeds</span>
+        <div class="verbatim">"Notice how much less often something comes out on the right compared to what's going in on the left — that's aggregation."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">④ two streams, two audiences</div>
+        <div class="verbatim">"So now there are two streams — the raw one, and a brand-new one that only exists for this result."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">⑤ the SQL statement</div>
+        <div class="verbatim">"In Flink SQL, that's really just one statement: insert into the new stream, select from the raw one."</div>
+      </div>
+    </section>
+
+    <section class="beat" id="i6">
+      <h3>Act 6 <span class="time-tag">~10s · no clicks</span></h3>
+      <div class="onscreen">Closing bridge — fade-in lines + "Open the console walkthrough" button</div>
+      <span class="cue-action">→ click the button, or alt-tab yourself</span>
+      <div class="verbatim">"That's the engine. Now let's go look at AWS actually running it."</div>
+    </section>
+
+    <div class="part-title">Part 2 — flink-console-walkthrough.html</div>
+    <div class="part-sub">~4:35 total.</div>
+
+    <section class="beat" id="c1">
+      <h3>Screen 1 <span class="time-tag">~25s</span></h3>
+      <div class="onscreen">Applications dashboard</div>
+      <span class="cue-action">→ say this once, before anything else on this screen</span>
+      <div class="verbatim">"Quick note — everything from here on is a simulated console. There's no real AWS account behind it, so nobody needs to go deploy anything for their own topic."</div>
+      <div class="verbatim">"There are two ways to build here — a Studio notebook, or a packaged streaming application. I'm using a notebook today because it's the fastest way to show you something live."</div>
+    </section>
+
+    <section class="beat" id="c2">
+      <h3>Screen 2 <span class="time-tag">~25s</span></h3>
+      <div class="onscreen">Amazon Kinesis Data Streams</div>
+      <div class="verbatim">"This stream already exists before Flink ever touches it. Flink doesn't create its own source — it just attaches to one that's already there, and that trips a lot of people up."</div>
+    </section>
+
+    <section class="beat" id="c3">
+      <h3>Screen 3 <span class="time-tag">~30s</span></h3>
+      <div class="onscreen">Create Studio notebook</div>
+      <div class="verbatim">"This wizard really only needs a few things from us: a name, an IAM role, a Glue database — just metadata storage, nothing more — and which Apache Flink version to run. That version choice matters later, since it's what the connector options and metric names are tied to."</div>
+    </section>
+
+    <section class="beat" id="c4">
+      <h3>Screen 4 <span class="time-tag">~50s · let it breathe</span></h3>
+      <div class="onscreen">MyNotebook — Apache Zeppelin</div>
+      <div class="verbatim">"Before Flink can query this stream at all, we have to declare a table on top of it — that's this CREATE TABLE. Notice it's not creating the Kinesis stream, just describing one that already exists."</div>
+      <div class="verbatim">"Now here's the query we're about to run."</div>
+      <span class="cue-action">→ click Run, then go quiet for 2–3 seconds</span>
+      <div class="verbatim">"And there it is — real rows landing as the stream moves."</div>
+    </section>
+
+    <section class="beat" id="c5">
+      <h3>Screen 5 <span class="time-tag">~25s</span></h3>
+      <div class="onscreen">Scaling &amp; parallelism</div>
+      <div class="verbatim">"Parallelism here is four — four parallel chunks of work — and KPUs auto-scale behind that automatically."</div>
+    </section>
+
+    <section class="beat" id="c6">
+      <h3>Screen 6 <span class="time-tag">~40s · 3 clicks</span></h3>
+      <div class="onscreen">Promote to a durable application — Build and Export → Create application → Run</div>
+      <div class="step">
+        <div class="step-caption">① click Build and Export</div>
+        <div class="verbatim">"This is a real packaging step — the notebook's code gets built into a JAR and pushed to S3. Nothing gets re-typed from here on; everything downstream reads from what just got built."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">② click Create application</div>
+        <span class="cue-action">→ point at the pre-filled fields</span>
+        <div class="verbatim">"Name, runtime, parallelism, code location, IAM role — all pre-populated. And notice snapshots are on: that's the durable state the notebook didn't have."</div>
+      </div>
+      <div class="step">
+        <div class="step-caption">③ click Run</div>
+        <div class="verbatim">"Same choice you'd face fixing a poison pill — restore from a snapshot, or start fresh. Either way, watch it come up: KPUs, parallelism, records per second, all climbing live."</div>
+      </div>
+    </section>
+
+    <section class="beat" id="c7">
+      <h3>Screen 7 <span class="time-tag">~90s · make it interactive, let them click</span></h3>
+      <div class="onscreen">Practice: find &amp; fix the poison pill — records → health tiles → config checkboxes → Update</div>
+      <span class="cue-action">→ ask the group, click the record they name</span>
+      <div class="verbatim">"Take a look at these four records — which one do you think is breaking this?"</div>
+      <span class="cue-action">→ point at the health tiles already flatlined/climbing below</span>
+      <div class="verbatim">"And here's what that actually looks like in the console — records per second at zero, restarts climbing. It's stuck replaying that same bad record from the last checkpoint, failing, and restarting, forever."</div>
+      <span class="cue-action">→ check the first box, click Update — metrics recover live</span>
+      <div class="verbatim">"The fix isn't to crash the job — it's one option on the table's format telling it to skip rows it can't parse. Watch the app come back."</div>
+      <span class="cue-action">→ optional, if time: also check the second box to show the validation error</span>
+      <div class="verbatim">"And here's a trap — this other option looks related, but combine the two and the console won't even let you deploy it."</div>
+      <div class="verbatim">"That's the engine, and that's the console. Questions?"</div>
+    </section>
+
+    <div class="summary-box" id="summary">
+      <h2>If you lose your place — 3 things to land no matter what</h2>
+      <ol>
+        <li>Flink processes continuously, one record at a time — never in batches.</li>
+        <li>Checkpoints are why a crash costs seconds, not the whole job — that's "exactly-once."</li>
+        <li>Scaling maps to shards, and AWS provisions the compute (KPUs) automatically — you don't manage servers.</li>
+      </ol>
+    </div>
+
+    <footer>Private notes — not shared during the session.</footer>
+  </div>
+</div>
+
+<script>
+let seconds = 0;
+let running = false;
+let intervalId = null;
+const clockEl = document.getElementById('clock');
+const toggleBtn = document.getElementById('timer-toggle');
+const resetBtn = document.getElementById('timer-reset');
+
+function render(){
+  const m = Math.floor(seconds/60), s = seconds%60;
+  clockEl.textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  clockEl.classList.remove('warn','over');
+  if(seconds >= 540) clockEl.classList.add('over');
+  else if(seconds >= 420) clockEl.classList.add('warn');
+}
+render();
+
+toggleBtn.addEventListener('click', ()=>{
+  running = !running;
+  toggleBtn.textContent = running ? 'Pause' : 'Start';
+  if(running){
+    intervalId = setInterval(()=>{ seconds++; render(); }, 1000);
+  } else {
+    clearInterval(intervalId);
+  }
+});
+resetBtn.addEventListener('click', ()=>{
+  seconds = 0;
+  render();
+});
+
+const sections = document.querySelectorAll('section.beat');
+const tocLinks = document.querySelectorAll('.toc a');
+function updateActiveLink(){
+  let currentId = null;
+  sections.forEach(sec=>{
+    const rect = sec.getBoundingClientRect();
+    if(rect.top < 140) currentId = sec.id;
+  });
+  tocLinks.forEach(a=>{
+    a.style.background = '';
+    a.style.color = '';
+    a.style.fontWeight = '';
+    if(currentId && a.getAttribute('href') === '#'+currentId){
+      a.style.background = 'var(--accent-soft)';
+      a.style.color = 'var(--accent)';
+      a.style.fontWeight = '600';
+    }
+  });
+}
+document.addEventListener('scroll', updateActiveLink);
+updateActiveLink();
+</script>
+
+</body>
+</html>
