@@ -42,6 +42,36 @@
     color:var(--dim);
     letter-spacing:.3px;
   }
+  .roadmap{
+    position:absolute;
+    top:24px;
+    right:64px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    z-index:5;
+  }
+  .roadmap .rnode{
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:10.5px;
+    color:var(--dim);
+    padding:3px 8px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--bg2);
+    transition:color .3s ease, border-color .3s ease, background .3s ease;
+    white-space:nowrap;
+  }
+  .roadmap .rnode.active{
+    color:var(--flow);
+    border-color:var(--flow-soft);
+    background:rgba(82,209,192,0.14);
+  }
+  .roadmap .rline{
+    width:12px;
+    height:1px;
+    background:var(--line);
+  }
   .act{
     display:none;
     flex-direction:column;
@@ -99,8 +129,14 @@
     border-radius:50%;
     top:-4px;
   }
+  .node-icon{display:block;margin:0 auto 6px auto;}
 
   /* ---- Act 0: batch vs streaming ---- */
+  .usecase-grid{display:flex;align-items:center;gap:24px;width:100%;}
+  .uc-sources{display:flex;flex-direction:column;gap:22px;flex:1;}
+  .uc-row{display:flex;align-items:center;}
+
+  /* ---- Act 1: meet the example ---- */
   .split{display:flex;height:100%;width:100%;gap:48px;}
   .half{flex:1;display:flex;flex-direction:column;}
   .half-title{font-size:14px;color:var(--dim);margin-bottom:16px;font-weight:600;}
@@ -131,7 +167,10 @@
   }
   .counter-box .value{font-size:26px;}
 
-  /* ---- Act 1: pipeline ---- */
+  /* ---- Act 2: why not just batch it ---- */
+  /* reuses .fanout / .node / .lane-track / .clock from other acts */
+
+  /* ---- Act 3: pipeline ---- */
   .pipeline-row{display:flex;align-items:center;width:100%;}
   .stat-row{display:flex;gap:40px;margin-top:36px;}
   .stat{font-family:"SFMono-Regular",Consolas,monospace;}
@@ -177,7 +216,7 @@
   .result-table td.store{color:var(--dim);}
   .result-table td.amount{color:var(--flow);text-align:right;font-weight:700;}
 
-  /* ---- Act 2: state / checkpoint ---- */
+  /* ---- Act 4: state / checkpoint ---- */
   .narrate{
     min-height:24px;
     font-size:15.5px;
@@ -194,6 +233,7 @@
     font-family:"SFMono-Regular",Consolas,monospace;
     font-size:clamp(44px,6vw,72px);
     font-weight:700;
+    color:var(--flow);
     transition:color .2s;
   }
   .big-number.failing{color:var(--danger);}
@@ -217,15 +257,71 @@
     color:var(--warn);
   }
 
-  /* ---- Act 3: scale out ---- */
+  /* ---- Act 5: how a window works ---- */
+  .window-stream-row{display:flex;align-items:center;margin-bottom:30px;}
+  .window-buckets{display:flex;gap:20px;width:100%;}
+  .window-bucket{
+    flex:1;
+    background:var(--bg2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:20px 16px;
+    text-align:center;
+    transition:opacity .3s ease, border-color .3s ease;
+  }
+  .window-bucket .bucket-label{font-size:12px;color:var(--dim);font-weight:600;margin-bottom:10px;}
+  .window-bucket .bucket-total{
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:30px;
+    font-weight:700;
+    color:var(--dim);
+  }
+  .window-bucket.open{border-color:var(--warn);box-shadow:0 0 0 1px rgba(242,153,74,0.25);}
+  .window-bucket.open .bucket-total{color:var(--warn);}
+  .window-bucket.closed .bucket-total{color:var(--flow);}
+  .window-bucket.closing{animation:sealPulse .5s ease;}
+  @keyframes sealPulse{0%{box-shadow:0 0 0 0 rgba(242,153,74,0.5);}100%{box-shadow:0 0 0 12px rgba(242,153,74,0);}}
+
+  /* ---- Act 6: checkpoint vs window ---- */
+  .compare-layout{display:flex;flex-direction:column;gap:34px;width:100%;}
+  .compare-row{display:flex;align-items:center;gap:18px;}
+  .compare-meta{flex:0 0 190px;}
+  .compare-meta .compare-title{font-size:14px;font-weight:700;}
+  .compare-meta .compare-tag{display:block;font-size:12px;margin-top:4px;font-weight:600;}
+  .compare-tag.visible-tag{color:var(--warn);}
+  .compare-tag.hidden-tag{color:var(--dim);}
+  .compare-timeline{
+    flex:1;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    height:50px;
+    overflow:hidden;
+    border-bottom:1px dashed var(--line);
+  }
+  .compare-chip{
+    flex:0 0 auto;
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:12px;
+    font-weight:700;
+    padding:6px 10px;
+    border-radius:5px;
+    animation:fadeUp .3s ease;
+    white-space:nowrap;
+  }
+  .compare-chip.window-chip{background:rgba(242,153,74,0.14);border:1px solid rgba(242,153,74,0.4);color:var(--warn);}
+  .compare-chip.cp-chip{background:var(--bg2);border:1px solid var(--line);color:var(--flow);}
+
+  /* ---- Act 7: scale out ---- */
   .lanes{display:flex;flex-direction:column;gap:18px;width:100%;}
   .lane-row{display:flex;align-items:center;}
   .lane-track{flex:1;height:2px;background:var(--line);position:relative;margin:0 14px;}
   .throughput{margin-top:34px;}
+  .stat-eq{font-family:"SFMono-Regular",Consolas,monospace;font-size:24px;color:var(--dim);}
   .lane-row.lane-locked{opacity:.4;}
   .lane-row.lane-locked .node{border-style:dashed;}
 
-  /* ---- Act 4: where results go ---- */
+  /* ---- Act 8: where results go ---- */
   .fanout{display:flex;align-items:center;width:100%;}
   .fanout-source{flex:0 0 auto;}
   .node-sub{font-size:11px;color:var(--dim);font-weight:400;margin-top:4px;line-height:1.3;max-width:140px;}
@@ -247,7 +343,7 @@
   }
   .fanout-path{display:flex;align-items:center;}
 
-  /* ---- Act 5: closing ---- */
+  /* ---- Act 9: closing ---- */
   .closing{
     display:flex;
     flex-direction:column;
@@ -319,14 +415,25 @@
 </head>
 <body>
 
-<div class="corner" id="corner">Act 1 of 5</div>
+<div class="corner" id="corner">Act 1 of 10</div>
+<div class="roadmap" id="roadmap">
+  <span class="rnode" data-key="ingest">ingest</span>
+  <span class="rline"></span>
+  <span class="rnode" data-key="query">query</span>
+  <span class="rline"></span>
+  <span class="rnode" data-key="state">state</span>
+  <span class="rline"></span>
+  <span class="rnode" data-key="scale">scale</span>
+  <span class="rline"></span>
+  <span class="rnode" data-key="sink">sink</span>
+</div>
 
 <div class="stage">
 
   <!-- ACT 0: batch vs streaming -->
   <div class="act active" id="act-0">
     <h1>Data doesn't wait.</h1>
-    <div class="sub">Streaming processes each record the instant it arrives — no waiting for the next run.</div>
+    <div class="sub">Streaming processes each record the instant it arrives — no waiting for the next run. That's Apache Flink: an open-source, distributed engine built for exactly this, which AWS runs for you as a managed service.</div>
     <div class="viz">
       <div class="split">
         <div class="half">
@@ -350,8 +457,82 @@
     </div>
   </div>
 
-  <!-- ACT 1: pipeline -->
+  <!-- ACT 1: meet the example -->
   <div class="act" id="act-1">
+    <h1>Three stores, one stream.</h1>
+    <div class="sub">Every ticket order from every store lands in the same place, the instant it happens.</div>
+    <div class="viz">
+      <div class="usecase-grid">
+        <div class="uc-sources">
+          <div class="uc-row">
+            <div class="node" style="min-width:90px;">NYC-01</div>
+            <div class="lane-track" id="uc-track-0"></div>
+          </div>
+          <div class="uc-row">
+            <div class="node" style="min-width:90px;">SF-02</div>
+            <div class="lane-track" id="uc-track-1"></div>
+          </div>
+          <div class="uc-row">
+            <div class="node" style="min-width:90px;">CHI-03</div>
+            <div class="lane-track" id="uc-track-2"></div>
+          </div>
+        </div>
+        <div class="node" style="min-width:210px;">
+          <img class="node-icon icon-kinesis" width="30" height="30" alt="Amazon Kinesis Data Streams">
+          orders-raw
+          <div class="node-sub">Amazon Kinesis Data Streams — one stream, every store</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACT 2: why not just batch it? -->
+  <div class="act" id="act-2">
+    <h1>One source, two paths.</h1>
+    <div class="sub">Same events, same destination — one path has a wait built in.</div>
+    <div class="viz">
+      <div style="width:100%;">
+        <div class="fanout">
+          <div class="fanout-source">
+            <div class="node">
+              <img class="node-icon icon-kinesis" width="22" height="22" alt="Amazon Kinesis Data Streams">
+              orders-raw<div class="node-sub">Amazon Kinesis Data Streams</div>
+            </div>
+          </div>
+          <div class="fanout-paths">
+            <div class="fanout-path">
+              <div class="lane-track" id="why-track-s3"></div>
+              <div class="node" style="min-width:90px;">
+                <img class="node-icon icon-s3" width="20" height="20" alt="Amazon S3">
+                S3<div class="node-sub">landing bucket</div>
+              </div>
+              <div class="lane-track" id="why-track-gate"></div>
+              <div class="node" id="why-gate" style="min-width:150px;">
+                <div class="clock" id="why-clock" style="margin:0;">next run in 0:08</div>
+                <div class="node-sub">scheduled batch job</div>
+              </div>
+              <div class="lane-track" id="why-track-stale"></div>
+              <div class="node" id="why-dashboard-stale" style="min-width:150px;opacity:.5;">
+                dashboard<div class="node-sub" id="why-stale-label"></div>
+              </div>
+            </div>
+            <div class="fanout-path">
+              <div class="lane-track" id="why-track-flink"></div>
+              <div class="node">Flink<div class="node-sub">continuous query</div></div>
+              <div class="lane-track" id="why-track-live"></div>
+              <div class="node" id="why-dashboard-live" style="min-width:150px;">
+                dashboard<div class="node-sub" id="why-live-label">updated just now</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="narrate" id="why-caption"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACT 3: pipeline -->
+  <div class="act" id="act-3">
     <h1>What happens to a record?</h1>
     <div class="sub">One SQL statement, running continuously — watch what goes in, and what comes out the other side.</div>
     <div class="viz">
@@ -378,20 +559,24 @@ GROUP BY store</div>
     </div>
   </div>
 
-  <!-- ACT 2: state / fault tolerance -->
-  <div class="act" id="act-2">
+  <!-- ACT 4: state / fault tolerance -->
+  <div class="act" id="act-4">
     <h1>How a checkpoint works.</h1>
     <div class="sub">Flink keeps its running results in memory. A checkpoint copies that memory to durable storage — so a crash costs seconds, not the whole job.</div>
     <div class="viz">
       <div style="width:100%;">
         <div class="checkpoint-layout">
           <div class="state-column">
+            <div class="node" style="min-width:70px;padding:8px 10px;display:inline-block;margin-bottom:14px;">worker</div>
             <div class="state-label">Flink's memory, right now</div>
             <div class="state-caption">a running total of ticket sales</div>
             <div class="big-number" id="big-number">$0</div>
           </div>
           <div class="cp-column">
-            <div class="cp-label">Saved checkpoints (e.g. in S3)</div>
+            <div class="cp-label">
+              <img class="icon-s3" style="display:inline-block;vertical-align:middle;margin:0 4px 2px 0;" width="16" height="16" alt="Amazon S3">
+              Saved checkpoints — Amazon S3
+            </div>
             <div class="cp-list" id="cp-list"></div>
           </div>
         </div>
@@ -400,31 +585,84 @@ GROUP BY store</div>
     </div>
   </div>
 
-  <!-- ACT 3: scale out -->
-  <div class="act" id="act-3">
+  <!-- ACT 5: how a window works -->
+  <div class="act" id="act-5">
+    <h1>How a window works.</h1>
+    <div class="sub">Not one number saved repeatedly — the stream itself gets sliced into fixed buckets, back to back.</div>
+    <div class="viz">
+      <div style="width:100%;">
+        <div class="window-stream-row">
+          <div class="node" style="min-width:100px;">orders-raw</div>
+          <div class="lane-track" id="window-track"></div>
+        </div>
+        <div class="window-buckets" id="window-buckets"></div>
+        <div class="narrate" id="win-caption"></div>
+        <div class="sql-box" id="win-sql-box" style="display:none;margin-top:14px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACT 6: checkpoint vs window -->
+  <div class="act" id="act-6">
+    <h1>Two jobs, same stream.</h1>
+    <div class="sub">Both run constantly, side by side. Only one of them is what your dashboard ever sees.</div>
+    <div class="viz">
+      <div style="width:100%;">
+        <div class="compare-layout">
+          <div class="compare-row">
+            <div class="compare-meta">
+              <div class="compare-title">Window job</div>
+              <span class="compare-tag visible-tag">→ visible output</span>
+            </div>
+            <div class="compare-timeline" id="cmp-window-line"></div>
+            <div class="node compare-sink" id="cmp-dashboard" style="min-width:120px;">dashboard</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-meta">
+              <div class="compare-title">Checkpoint job</div>
+              <span class="compare-tag hidden-tag">→ invisible, internal only</span>
+            </div>
+            <div class="compare-timeline" id="cmp-cp-line"></div>
+            <div class="node compare-sink" id="cmp-s3" style="min-width:120px;">
+              <img class="icon-s3" width="18" height="18" alt="Amazon S3" style="display:block;margin:0 auto 4px auto;">S3
+            </div>
+          </div>
+        </div>
+        <div class="narrate" id="cmp-caption"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACT 7: scale out -->
+  <div class="act" id="act-7">
     <h1>Scaling maps to shards.</h1>
-    <div class="sub">Each shard in the source stream gets its own parallel Flink subtask. AWS provisions the compute behind them automatically.</div>
+    <div class="sub">Parallelism is how many copies of your query run side by side — one per shard. A KPU (Kinesis Processing Unit) is the slice of compute AWS provisions for each one, automatically.</div>
     <div class="viz">
       <div style="width:100%;">
         <div class="lanes" id="scale-lanes"></div>
         <div class="narrate" id="scale-caption"></div>
-        <div class="stat-row" style="margin-top:14px;">
-          <div class="stat"><span class="num" id="stat-kpu">2</span><span class="cap">KPUs provisioned</span></div>
-          <div class="stat"><span class="num" id="stat-throughput">0</span><span class="cap">events/sec, combined</span></div>
+        <div class="stat-row" style="margin-top:14px;align-items:center;">
+          <div class="stat"><span class="num" id="stat-parallelism">1</span><span class="cap">parallelism</span></div>
+          <div class="stat-eq">=</div>
+          <div class="stat"><span class="num" id="stat-kpu">1</span><span class="cap">KPUs provisioned</span></div>
+          <div class="stat" style="margin-left:24px;"><span class="num" id="stat-throughput">0</span><span class="cap">events/sec, combined</span></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ACT 4: where results go -->
-  <div class="act" id="act-4">
+  <!-- ACT 8: where results go -->
+  <div class="act" id="act-8">
     <h1>One stream in, a new stream out.</h1>
     <div class="sub">Flink doesn't replace your raw data — it sits beside it and continuously produces something new.</div>
     <div class="viz">
       <div style="width:100%;">
         <div class="fanout">
           <div class="fanout-source">
-            <div class="node">orders-raw<div class="node-sub">the raw stream</div></div>
+            <div class="node">
+              <img class="node-icon icon-kinesis" width="22" height="22" alt="Amazon Kinesis Data Streams">
+              orders-raw<div class="node-sub">Amazon Kinesis Data Streams — the raw stream</div>
+            </div>
           </div>
           <div class="fanout-paths">
             <div class="fanout-path">
@@ -435,7 +673,10 @@ GROUP BY store</div>
               <div class="lane-track" id="track-flink-in"></div>
               <div class="node" id="flink-box">Flink<div class="node-sub">filter + aggregate</div></div>
               <div class="lane-track" id="track-flink-out"></div>
-              <div class="node">ticket-sales-aggregated<div class="node-sub">a brand-new stream</div></div>
+              <div class="node">
+                <img class="node-icon icon-kinesis" width="22" height="22" alt="Amazon Kinesis Data Streams">
+                ticket-sales-aggregated<div class="node-sub">Amazon Kinesis Data Streams — a brand-new stream</div>
+              </div>
             </div>
           </div>
         </div>
@@ -444,8 +685,8 @@ GROUP BY store</div>
     </div>
   </div>
 
-  <!-- ACT 5: closing / bridge -->
-  <div class="act" id="act-5">
+  <!-- ACT 9: closing / bridge -->
+  <div class="act" id="act-9">
     <div class="closing">
       <p>That's the engine — flowing, stateful, and fault-tolerant.</p>
       <p>Amazon Managed Service for Apache Flink runs all of this for you.</p>
@@ -459,7 +700,17 @@ GROUP BY store</div>
 </div>
 
 <script>
-const N_ACTS = 6;
+// official AWS architecture icons (Amazon Kinesis Data Streams, Amazon S3), embedded
+// as base64 so the deck has zero network dependency during a live presentation
+const KINESIS_ICON = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iNjRweCIgaGVpZ2h0PSI2NHB4IiB2aWV3Qm94PSIwIDAgNjQgNjQiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8IS0tIEdlbmVyYXRvcjogU2tldGNoIDY0ICg5MzUzNykgLSBodHRwczovL3NrZXRjaC5jb20gLS0+CiAgICA8dGl0bGU+SWNvbi1BcmNoaXRlY3R1cmUvNDgvQXJjaF9BbWF6b24tS2luZXNpcy1EYXRhLVN0cmVhbXNfNDg8L3RpdGxlPgogICAgPGRlc2M+Q3JlYXRlZCB3aXRoIFNrZXRjaC48L2Rlc2M+CiAgICA8ZGVmcz4KICAgICAgICA8bGluZWFyR3JhZGllbnQgeDE9IjAlIiB5MT0iMTAwJSIgeDI9IjEwMCUiIHkyPSIwJSIgaWQ9ImxpbmVhckdyYWRpZW50LTEiPgogICAgICAgICAgICA8c3RvcCBzdG9wLWNvbG9yPSIjNEQyN0E4IiBvZmZzZXQ9IjAlIj48L3N0b3A+CiAgICAgICAgICAgIDxzdG9wIHN0b3AtY29sb3I9IiNBMTY2RkYiIG9mZnNldD0iMTAwJSI+PC9zdG9wPgogICAgICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8L2RlZnM+CiAgICA8ZyBpZD0iSWNvbi1BcmNoaXRlY3R1cmUvNDgvQXJjaF9BbWF6b24tS2luZXNpcy1EYXRhLVN0cmVhbXNfNDgiIHN0cm9rZT0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxIiBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPgogICAgICAgIDxnIGlkPSJJY29uLUFyY2hpdGVjdHVyZS1CRy80OC9BbmFseXRpY3MiIGZpbGw9InVybCgjbGluZWFyR3JhZGllbnQtMSkiPgogICAgICAgICAgICA8cmVjdCBpZD0iUmVjdGFuZ2xlIiB4PSIwIiB5PSIwIiB3aWR0aD0iNjQiIGhlaWdodD0iNjQiPjwvcmVjdD4KICAgICAgICA8L2c+CiAgICAgICAgPGcgaWQ9Ikljb24tU2VydmljZS80OC9BbWF6b24tS2luZXNpcy1EYXRhLVN0cmVhbXMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDguMDAwMDAwLCA4LjAwMDAwMCkiIGZpbGw9IiNGRkZGRkYiPgogICAgICAgICAgICA8cGF0aCBkPSJNMzYsNDEuMDAxIEwzNyw0MS4wMDEgTDM3LDQwLjAwMSBMMzYsNDAuMDAxIEwzNiw0MS4wMDEgWiBNMzksMzkuMDAxIEwzOSw0Mi4wMDEgQzM5LDQyLjU1MyAzOC41NTMsNDMuMDAxIDM4LDQzLjAwMSBMMzUsNDMuMDAxIEMzNC40NDgsNDMuMDAxIDM0LDQyLjU1MyAzNCw0Mi4wMDEgTDM0LDM5LjAwMSBDMzQsMzguNDQ5IDM0LjQ0OCwzOC4wMDEgMzUsMzguMDAxIEwzOCwzOC4wMDEgQzM4LjU1MywzOC4wMDEgMzksMzguNDQ5IDM5LDM5LjAwMSBMMzksMzkuMDAxIFogTTM0LDM2LjAwMSBMMzcsMzYuMDAxIEwzNywzNC4wMDEgTDM0LDM0LjAwMSBMMzQsMzYuMDAxIFogTTQwLDMzLjAwMSBMNDEsMzMuMDAxIEw0MSwzMi4wMDEgTDQwLDMyLjAwMSBMNDAsMzMuMDAxIFogTTQ0LDM2LjUwMSBDNDQsMzUuMTQ1IDQzLjYzMywzMy44NzQgNDMsMzIuNzc1IEw0MywzNC4wMDEgQzQzLDM0LjU1MyA0Mi41NTMsMzUuMDAxIDQyLDM1LjAwMSBMMzksMzUuMDAxIEMzOC40NDgsMzUuMDAxIDM4LDM0LjU1MyAzOCwzNC4wMDEgTDM4LDMxLjAwMSBDMzgsMzAuNDQ5IDM4LjQ0OCwzMC4wMDEgMzksMzAuMDAxIEw0MC4yMjYsMzAuMDAxIEMzOS4xMjcsMjkuMzY5IDM3Ljg1NywyOS4wMDEgMzYuNSwyOS4wMDEgQzM1LjE0NCwyOS4wMDEgMzMuODczLDI5LjM2OSAzMi43NzUsMzAuMDAxIEwzNywzMC4wMDEgTDM3LDMyLjAwMSBMMzAuNTE0LDMyLjAwMSBDMzAuMDYsMzIuNjA0IDI5LjY5NiwzMy4yNzYgMjkuNDM4LDM0LjAwMSBMMzMsMzQuMDAxIEwzMywzNi4wMDEgTDI5LjAyNiwzNi4wMDEgQzI5LjAxNSwzNi4xNjcgMjksMzYuMzMyIDI5LDM2LjUwMSBDMjksMzcuMDE1IDI5LjA1MywzNy41MTYgMjkuMTUyLDM4LjAwMSBMMzIsMzguMDAxIEwzMiw0MC4wMDEgTDI5Ljg3Miw0MC4wMDEgQzMwLjA1OSw0MC4zNTMgMzAuMjc2LDQwLjY4NSAzMC41MTQsNDEuMDAxIEwzMiw0MS4wMDEgTDMyLDQyLjQ4NyBDMzMuMjU1LDQzLjQzMyAzNC44MTEsNDQuMDAxIDM2LjUsNDQuMDAxIEMzNy44NTcsNDQuMDAxIDM5LjEyNyw0My42MzMgNDAuMjI2LDQzLjAwMSBMNDAsNDMuMDAxIEw0MCw0MS4wMDEgTDQyLjQ4Nyw0MS4wMDEgQzQyLjcyNSw0MC42ODUgNDIuOTQyLDQwLjM1MyA0My4xMjgsNDAuMDAxIEw0MCw0MC4wMDEgTDQwLDM4LjAwMSBMNDMuODQ5LDM4LjAwMSBDNDMuOTQ4LDM3LjUxNiA0NCwzNy4wMTUgNDQsMzYuNTAxIEw0NCwzNi41MDEgWiBNNDYsMzYuNTAxIEM0Niw0MS43MzkgNDEuNzM5LDQ2LjAwMSAzNi41LDQ2LjAwMSBDMzEuMjYyLDQ2LjAwMSAyNyw0MS43MzkgMjcsMzYuNTAxIEMyNywzMS4yNjMgMzEuMjYyLDI3LjAwMSAzNi41LDI3LjAwMSBDNDEuNzM5LDI3LjAwMSA0NiwzMS4yNjMgNDYsMzYuNTAxIEw0NiwzNi41MDEgWiBNMjkuNjQ2LDI3LjYwMSBDMTEuNjk1LDI5LjE2MiA4LDMzLjY4OCA4LDQwIEwxMCw0MCBDMTAsMzUuOCAxMS40MTIsMzEuNTc5IDI3LjQ2NywyOS44MjUgQzI4LjA4OCwyOC45ODYgMjguODIxLDI4LjIzOCAyOS42NDYsMjcuNjAxIEwyOS42NDYsMjcuNjAxIFogTTEzLDQ1Ljg3NiBMMTMsNDYgTDE1LDQ2IEwxNSw0NS44NzYgQzE0Ljk5OSw0MS41OTEgMTUuMDA2LDM3LjE2OSAyNS40MDIsMzQuNzQyIEMyNS41MjEsMzMuOTkgMjUuNzEzLDMzLjI2NCAyNS45NzMsMzIuNTY5IEMxMy4wMDYsMzUuMjg0IDEyLjk5OSw0MS4xNDYgMTMsNDUuODc2IEwxMyw0NS44NzYgWiBNNSwxNSBMMywxNSBDMywxOC42MTQgNS43NDcsMjIuMjg1IDIyLjAxMiwyNCBDNS43NDcsMjUuNzE1IDMsMjkuMzg2IDMsMzMgTDUsMzMgQzUsMjcuNjE3IDE4LjQxMiwyNSA0NiwyNSBMNDYsMjMgQzE4LjQxMiwyMyA1LDIwLjM4MyA1LDE1IEw1LDE1IFogTTEwLDggTDgsOCBDOCwxNi4yMzMgMTQuMjE4LDIxIDQ2LDIxIEw0NiwxOSBDMTIuNzgsMTkgMTAsMTMuNTY2IDEwLDggTDEwLDggWiBNNDYsMTUgTDQ2LDE3IEMzMS41NTEsMTcgMjIuMjA5LDE1LjQ0MyAxNy40NDEsMTIuMjQxIEMxMi45OTgsOS4yNTcgMTIuOTk5LDUuMzAyIDEyLjk5OTk3LDIuMTI0IEwxMi45OTk5NywyIEwxNSwyIEwxNSwyLjEyNCBDMTQuOTk5LDUuMjQ0IDE0Ljk5OSw4LjE5MSAxOC41NTYsMTAuNTggQzIyLjk4NSwxMy41NTQgMzEuOTYxLDE1IDQ2LDE1IEw0NiwxNSBaIiBpZD0iQW1hem9uLUtpbmVzaXMtRGF0YS1TdHJlYW1zX0ljb25fNDhfU3F1aWQiPjwvcGF0aD4KICAgICAgICA8L2c+CiAgICA8L2c+Cjwvc3ZnPg==';
+const S3_ICON = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iNjRweCIgaGVpZ2h0PSI2NHB4IiB2aWV3Qm94PSIwIDAgNjQgNjQiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8dGl0bGU+SWNvbi1BcmNoaXRlY3R1cmUvNDgvQXJjaF9BbWF6b24tU2ltcGxlLVN0b3JhZ2UtU2VydmljZV80ODwvdGl0bGU+CiAgICA8ZGVmcz4KICAgICAgICA8bGluZWFyR3JhZGllbnQgeDE9IjAlIiB5MT0iMTAwJSIgeDI9IjEwMCUiIHkyPSIwJSIgaWQ9ImxpbmVhckdyYWRpZW50LTEiPgogICAgICAgICAgICA8c3RvcCBzdG9wLWNvbG9yPSIjMUI2NjBGIiBvZmZzZXQ9IjAlIj48L3N0b3A+CiAgICAgICAgICAgIDxzdG9wIHN0b3AtY29sb3I9IiM2Q0FFM0UiIG9mZnNldD0iMTAwJSI+PC9zdG9wPgogICAgICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8L2RlZnM+CiAgICA8ZyBpZD0iSWNvbi1BcmNoaXRlY3R1cmUvNDgvQXJjaF9BbWF6b24tU2ltcGxlLVN0b3JhZ2UtU2VydmljZV80OCIgc3Ryb2tlPSJub25lIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiIGZpbGwtcnVsZT0iZXZlbm9kZCI+CiAgICAgICAgPGcgaWQ9IlJlY3RhbmdsZSIgZmlsbD0idXJsKCNsaW5lYXJHcmFkaWVudC0xKSI+CiAgICAgICAgICAgIDxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PC9yZWN0PgogICAgICAgIDwvZz4KICAgICAgICA8ZyBpZD0iSWNvbi1TZXJ2aWNlLzQ4L0FtYXpvbi1TaW1wbGUtU3RvcmFnZS1TZXJ2aWNlXzQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg4LjAwMDAwMCwgOC4wMDAwMDApIiBmaWxsPSIjRkZGRkZGIj4KICAgICAgICAgICAgPHBhdGggZD0iTTM5Ljc1ODgsMjUuOTQ4MiBMMzkuOTkyOCwyNC4xMzEyIEM0Mi4xNjU4LDI1LjM4NTIgNDIuODQxOCwyNi4xMjEyIDQzLjAzNjgsMjYuNDI0MiBDNDIuNzEyOCwyNi40ODUyIDQxLjgzMTgsMjYuNTA5MiAzOS43NTg4LDI1Ljk0ODIgTDM5Ljc1ODgsMjUuOTQ4MiBaIE0yMi40OTk4LDEzLjAwMDIgQzEyLjEyNDgsMTMuMDAwMiA1LjM4MTgsMTAuNDg4MiA0Ljk5OTgsOC42OTYyIEw0Ljk5OTgsOC41MTEyIEM1LjM0ODgsNy4zOTIyIDExLjEzOTgsNC4wMDAyIDIyLjQ5OTgsNC4wMDAyIEMzMy44Mzk4LDQuMDAwMiAzOS42MzE4LDcuMzgxMiAzOS45OTk4LDguNTA1MiBMMzkuOTk5OCw4LjYxNjIgQzM5LjcyMzgsMTAuNDQ2MiAzMi45NjA4LDEzLjAwMDIgMjIuNDk5OCwxMy4wMDAyIEwyMi40OTk4LDEzLjAwMDIgWiBNMzcuODE3OCwyNS4zNjIyIEMzMy4wNTI4LDIzLjc5NzIgMjYuOTExOCwyMC45NzkyIDI0LjU5MzgsMTkuODg4MiBDMjQuNTM0OCwxOC43ODYyIDIzLjYyNzgsMTcuOTA2MiAyMi41MTE4LDE3LjkwNjIgQzIxLjM1NzgsMTcuOTA2MiAyMC40MTc4LDE4Ljg0NTIgMjAuNDE3OCwyMC4wMDAyIEMyMC40MTc4LDIxLjE1NDIgMjEuMzU3OCwyMi4wOTQyIDIyLjUxMTgsMjIuMDk0MiBDMjIuOTY4OCwyMi4wOTQyIDIzLjM4ODgsMjEuOTQyMiAyMy43MzI4LDIxLjY5MzIgQzI2LjEzMTgsMjIuODIyMiAzMi42MTg4LDI1Ljc5ODIgMzcuNTU3OCwyNy4zODAyIEwzNS44MzY4LDQwLjcyNDIgQzM1LjU4MjgsNDIuMzUyMiAzMC45MTg4LDQ0LjAwMDIgMjIuNDk2OCw0NC4wMDAyIEMxNC4wNzE4LDQ0LjAwMDIgOS40MDQ4LDQyLjM1MjIgOS4xNTQ4LDQwLjc1MTIgTDUuNDM0OCwxMS44MTQyIEM4Ljk0NDgsMTMuOTE1MiAxNS43NDg4LDE1LjAwMDIgMjIuNDk5OCwxNS4wMDAyIEMyOS4yNDk4LDE1LjAwMDIgMzYuMDUzOCwxMy45MTUyIDM5LjU2NDgsMTEuODE1MiBMMzcuODE3OCwyNS4zNjIyIFogTTQxLjk5OTgsOC41MDAyIEM0MS45OTk4LDUuNDMxMiAzMy42NjA4LDIuMDAwMiAyMi40OTk4LDIuMDAwMiBDMTEuMzM4OCwyLjAwMDIgMi45OTk4LDUuNDMxMiAyLjk5OTgsOC41MDAyIEwyLjk5OTgsOS4wNDMyIEw3LjE3MzgsNDEuMDMzMiBDNy44NzQ4LDQ1LjUxNjIgMTguMTIyOCw0Ni4wMDAyIDIyLjQ5NjgsNDYuMDAwMiBDMjYuODY4OCw0Ni4wMDAyIDM3LjExMjgsNDUuNTE2MiAzNy44MTc4LDQxLjAwNzIgTDM5LjUwMDgsMjcuOTQ3MiBDNDAuNzc3OCwyOC4yNzkyIDQxLjgxMTgsMjguNDU2MiA0Mi42MTU4LDI4LjQ1NTIgQzQzLjYwNTgsMjguNDU1MiA0NC4yNzI4LDI4LjIwMzIgNDQuNjk2OCwyNy42OTcyIEM0NS4wNDY4LDI3LjI4MTIgNDUuMTg0OCwyNi43NTYyIDQ1LjA4NDgsMjYuMjIxMiBDNDQuODU2OCwyNS4wMDAyIDQzLjQwMjgsMjMuNzEyMiA0MC4zNjk4LDIyLjA0NDIgTDQwLjI2OTgsMjEuOTg5MiBMNDEuOTk5OCw5LjA0NDIgTDQxLjk5OTgsOC41MDAyIFoiIGlkPSJBbWF6b24tU2ltcGxlLVN0b3JhZ2UtU2VydmljZS1JY29uXzQ4X1NxdWlkIj48L3BhdGg+CiAgICAgICAgPC9nPgogICAgPC9nPgo8L3N2Zz4=';
+function wireStaticIcons(){
+  document.querySelectorAll('img.icon-kinesis').forEach(img=>{ img.src = KINESIS_ICON; });
+  document.querySelectorAll('img.icon-s3').forEach(img=>{ img.src = S3_ICON; });
+}
+wireStaticIcons();
+
+const N_ACTS = 10;
 let current = 0;
 let cleanupFns = [];
 let advanceWithinAct = null; // set by an act's init if it has a manually-paced caption sequence
@@ -479,7 +730,30 @@ function clearTimers(){
 
 function setStepIndicator(i, total){
   const corner = document.getElementById('corner');
-  corner.textContent = cornerBase + (total>1 ? ' \u00b7 ' + (i+1) + '/' + total + ' \u00b7 press \u203a for next line' : '');
+  corner.textContent = cornerBase + (total>1 ? ' · ' + (i+1) + '/' + total + ' · press › for next line' : '');
+}
+
+// the pipeline stages this deck walks through, in order — the roadmap strip
+// highlights whichever ones the current act covers, so every act visually
+// shows where it sits relative to the ones before and after it
+const ROADMAP_STAGES = ['ingest','query','state','scale','sink'];
+const ROADMAP_BY_ACT = {
+  0: [],
+  1: [],
+  2: [],
+  3: ['ingest','query'],
+  4: ['state'],
+  5: ['query'], // windowing is a refinement of the continuous query, not a new stage
+  6: ['state','query'], // contrasts the two, doesn't introduce a new stage
+  7: ['scale'],
+  8: ['sink'],
+  9: ROADMAP_STAGES,
+};
+function updateRoadmap(n){
+  const activeKeys = ROADMAP_BY_ACT[n] || [];
+  document.querySelectorAll('#roadmap .rnode').forEach(el=>{
+    el.classList.toggle('active', activeKeys.includes(el.dataset.key));
+  });
 }
 
 function showAct(n){
@@ -490,11 +764,16 @@ function showAct(n){
   document.querySelectorAll('.dots span').forEach((d,i)=>d.classList.toggle('on', i===n));
   cornerBase = 'Act '+(n+1)+' of '+N_ACTS;
   document.getElementById('corner').textContent = cornerBase;
+  updateRoadmap(n);
   if(n===0) initAct0();
   if(n===1) initAct1();
   if(n===2) initAct2();
   if(n===3) initAct3();
   if(n===4) initAct4();
+  if(n===5) initAct5();
+  if(n===6) initAct6();
+  if(n===7) initAct7();
+  if(n===8) initAct8();
 }
 
 function goTo(n){
@@ -517,7 +796,7 @@ document.addEventListener('keydown', (e)=>{
   if(e.key==='ArrowLeft' || e.key==='Backspace') { e.preventDefault(); goTo(current-1); }
 });
 document.getElementById('open-console').addEventListener('click', ()=>{
-  window.open('flink-console-walkthrough.html','_blank');
+  window.open('flink-console-walkthrough_1.html','_blank');
 });
 
 /* helper: animate a dot across a track element */
@@ -543,7 +822,7 @@ function flow(track, opts){
   return anim;
 }
 
-/* ---------- ACT 0 ---------- */
+/* ---------- ACT 0: batch vs streaming ---------- */
 function initAct0(){
   const filestack = document.getElementById('filestack');
   const clockEl = document.getElementById('batch-clock');
@@ -585,8 +864,101 @@ function initAct0(){
   cleanupFns.push(()=>{clearInterval(clockTimer);clearInterval(fileTimer);clearInterval(streamTimer);});
 }
 
-/* ---------- ACT 1: what happens to a record ---------- */
+/* ---------- ACT 1: meet the example ---------- */
 function initAct1(){
+  const tracks = [0,1,2].map(i=>document.getElementById('uc-track-'+i));
+  const timers = tracks.map((track, i)=>setInterval(()=>{
+    flow(track, {duration:900});
+  }, 500 + i*140));
+  cleanupFns.push(()=>timers.forEach(clearInterval));
+}
+
+/* ---------- ACT 2: why not just batch it? ---------- */
+function initAct2(){
+  const s3Track = document.getElementById('why-track-s3');
+  const gateTrack = document.getElementById('why-track-gate');
+  const staleTrack = document.getElementById('why-track-stale');
+  const flinkTrack = document.getElementById('why-track-flink');
+  const liveTrack = document.getElementById('why-track-live');
+  const clockEl = document.getElementById('why-clock');
+  const staleDash = document.getElementById('why-dashboard-stale');
+  const staleLabel = document.getElementById('why-stale-label');
+  const liveDash = document.getElementById('why-dashboard-live');
+  const liveLabel = document.getElementById('why-live-label');
+  const captionEl = document.getElementById('why-caption');
+
+  // the batch cadence is compressed to a few seconds so the audience actually
+  // sees a run happen live — the presenter's job is to say "in reality, minutes"
+  const CYCLE = 8;
+  let secondsLeft = CYCLE;
+  let secondsSinceUpdate = 0;
+
+  function renderClock(){
+    clockEl.textContent = 'next run in 0:' + String(secondsLeft).padStart(2,'0');
+  }
+  function renderStaleLabel(){
+    staleLabel.textContent = secondsSinceUpdate===0 ? 'updated just now' : secondsSinceUpdate+'s ago';
+  }
+  renderClock();
+  renderStaleLabel();
+
+  function fireBatch(){
+    flow(gateTrack, {duration:600});
+    setTimeout(()=>{
+      flow(staleTrack, {duration:600, onArrive:()=>{
+        secondsSinceUpdate = 0;
+        renderStaleLabel();
+        staleDash.animate([{opacity:.5},{opacity:1},{opacity:.5}], {duration:500});
+      }});
+    }, 600);
+  }
+
+  const clockTimer = setInterval(()=>{
+    secondsLeft--;
+    secondsSinceUpdate++;
+    if(secondsLeft <= 0){
+      secondsLeft = CYCLE;
+      fireBatch();
+    }
+    renderClock();
+    renderStaleLabel();
+  }, 1000);
+
+  const s3Timer = setInterval(()=>{ flow(s3Track, {duration:800}); }, 420);
+  const flinkTimer = setInterval(()=>{ flow(flinkTrack, {duration:800}); }, 420);
+  const liveTimer = setInterval(()=>{
+    flow(liveTrack, {duration:800, onArrive:()=>{
+      liveDash.animate([{boxShadow:'0 0 0 0 rgba(82,209,192,0.4)'},{boxShadow:'0 0 0 8px transparent'}], {duration:500});
+      liveLabel.textContent = 'updated just now';
+    }});
+  }, 1100);
+
+  const steps = [
+    { caption:"Both paths start at the same place — the same Kinesis stream, orders-raw." },
+    { caption:"Land it in S3, and someone still has to run a job to read it back — on whatever schedule that job is set to." },
+    { caption:"Flink skips the wait entirely — it's already reading the stream, so the result is never more than a moment old." },
+  ];
+  let stepIndex = 0;
+  function showStep(i){
+    captionEl.textContent = steps[i].caption;
+    setStepIndicator(i, steps.length);
+  }
+  showStep(0);
+  advanceWithinAct = function(){
+    if(stepIndex < steps.length-1){ stepIndex++; showStep(stepIndex); return true; }
+    return false;
+  };
+
+  cleanupFns.push(()=>{
+    clearInterval(clockTimer);
+    clearInterval(s3Timer);
+    clearInterval(flinkTimer);
+    clearInterval(liveTimer);
+  });
+}
+
+/* ---------- ACT 3: what happens to a record ---------- */
+function initAct3(){
   const feed = document.getElementById('record-feed');
   const sqlBox = document.getElementById('sql-box');
   const resultBody = document.getElementById('result-body');
@@ -650,10 +1022,10 @@ function initAct1(){
   }, 1300);
 
   const steps = [
-    { caption:"Every record that arrives is one row streaming in \u2014 watch them land on the left." },
-    { caption:"This SQL statement is running continuously in Flink \u2014 not once, forever, on whatever comes next." },
+    { caption:"Every record that arrives is one row streaming in — watch them land on the left." },
+    { caption:"This SQL statement is running continuously in Flink — not once, forever, on whatever comes next." },
     { caption:"Watch the totals on the right update the instant a valid record is aggregated." },
-    { caption:"A malformed record \u2014 an amount that isn't a number \u2014 never reaches the aggregation. It's filtered out first, before it can corrupt a total." },
+    { caption:"A malformed record — an amount that isn't a number — never reaches the aggregation. It's filtered out first, before it can corrupt a total." },
   ];
   let stepIndex = 0;
   function showStep(i){
@@ -669,8 +1041,8 @@ function initAct1(){
   cleanupFns.push(()=>clearInterval(recordTimer));
 }
 
-/* ---------- ACT 2: state / checkpoint ---------- */
-function initAct2(){
+/* ---------- ACT 4: state / checkpoint ---------- */
+function initAct4(){
   const bigNumber = document.getElementById('big-number');
   const eventCaption = document.getElementById('event-caption');
   const cpList = document.getElementById('cp-list');
@@ -694,7 +1066,7 @@ function initAct2(){
     cpValues.forEach((v)=>{
       const row = document.createElement('div');
       row.className = 'cp-row';
-      row.textContent = '\u2713 $' + v.toLocaleString();
+      row.textContent = '✓ $' + v.toLocaleString();
       cpList.appendChild(row);
     });
   }
@@ -733,9 +1105,9 @@ function initAct2(){
       action:()=>{ ticking = false; takeCheckpoint(); } },
     { caption:"Now say that worker crashes. Everything that was only in memory — gone.",
       action:()=>{ ticking = false; bigNumber.classList.add('failing'); } },
-    { caption:"Flink restarts the task and reloads the most recent checkpoint from storage \u2014 not from zero.",
+    { caption:"Flink restarts the task and reloads the most recent checkpoint from storage — not from zero.",
       action:()=>{ restoreFromCheckpoint(); } },
-    { caption:"Processing resumes from exactly that saved value. Nothing before it is lost, nothing after it gets counted twice. That's \u201Cexactly-once.\u201D",
+    { caption:"Processing resumes from exactly that saved value. Nothing before it is lost, nothing after it gets counted twice. That's “exactly-once.”",
       action:()=>{ ticking = true; } },
   ];
   let stepIndex = 0;
@@ -754,10 +1126,154 @@ function initAct2(){
   cleanupFns.push(()=>clearInterval(tickTimer));
 }
 
-/* ---------- ACT 3: scale out ---------- */
-function initAct3(){
+/* ---------- ACT 5: how a window works ---------- */
+function initAct5(){
+  const trackEl = document.getElementById('window-track');
+  const bucketsEl = document.getElementById('window-buckets');
+  const winCaption = document.getElementById('win-caption');
+  const sqlBoxEl = document.getElementById('win-sql-box');
+  sqlBoxEl.style.display = 'none';
+
+  // three buckets on screen at once: two closed (final, frozen) and one open
+  // (live, growing) — a closed bucket never changes again once it's sealed
+  let seq = 1;
+  let windows = [
+    { seq: seq++, total: 210, closed: true },
+    { seq: seq++, total: 165, closed: true },
+    { seq: seq++, total: 0,   closed: false },
+  ];
+
+  function render(closingIdx){
+    bucketsEl.innerHTML = '';
+    windows.forEach((w, i)=>{
+      const div = document.createElement('div');
+      div.className = 'window-bucket ' + (w.closed ? 'closed' : 'open') + (i===closingIdx ? ' closing' : '');
+      div.innerHTML =
+        '<div class="bucket-label">window #'+w.seq+(w.closed ? '' : ' — live')+'</div>'+
+        '<div class="bucket-total">$'+w.total.toLocaleString()+'</div>';
+      bucketsEl.appendChild(div);
+    });
+  }
+  render();
+
+  const tickTimer = setInterval(()=>{
+    const open = windows[windows.length-1];
+    open.total += Math.floor(15 + Math.random()*45);
+    render();
+  }, 250);
+
+  const flowTimer = setInterval(()=>{ flow(trackEl, {duration:800, color:'var(--warn)'}); }, 380);
+
+  // the window closes on its own, on a compressed cadence — same trick as the
+  // "why not batch" act — so the audience watches several buckets actually
+  // seal and a fresh one open, without needing to click through it
+  function closeWindow(){
+    windows[windows.length-1].closed = true;
+    render(windows.length-1);
+    windows.push({ seq: seq++, total: 0, closed: false });
+    if(windows.length > 3) windows.shift();
+    setTimeout(render, 500);
+  }
+  const CYCLE_MS = 4000;
+  const cycleTimer = setInterval(closeWindow, CYCLE_MS);
+
+  const windowSql = "INSERT INTO ticket_sales_aggregated\n"+
+                     "SELECT store_id,\n"+
+                     "       SUM(amount) AS total_sales\n"+
+                     "FROM   orders_raw\n"+
+                     "GROUP BY store_id, TUMBLE(event_time, INTERVAL '1' MINUTE)";
+
+  const steps = [
+    { caption:"Every window is its own bucket. Events flow in, and only the open bucket's total grows." },
+    { caption:"When the window ends, that bucket seals for good — its total is final — and a brand-new bucket opens next to it." },
+    { caption:"Nothing carries over between buckets. Window #2 has no idea window #1 ever happened — that's the difference from a checkpoint, which is one number, saved repeatedly, never reset." },
+    { caption:"In Flink SQL, this is the same continuous query from before, with one addition — grouping by window, not just by store:",
+      sql: windowSql },
+  ];
+  let stepIndex = 0;
+  function showStep(i){
+    winCaption.textContent = steps[i].caption;
+    if(steps[i].sql){
+      sqlBoxEl.textContent = steps[i].sql;
+      sqlBoxEl.style.display = 'block';
+    } else {
+      sqlBoxEl.style.display = 'none';
+    }
+    setStepIndicator(i, steps.length);
+  }
+  showStep(0);
+  advanceWithinAct = function(){
+    if(stepIndex < steps.length-1){ stepIndex++; showStep(stepIndex); return true; }
+    return false;
+  };
+
+  cleanupFns.push(()=>{clearInterval(tickTimer); clearInterval(flowTimer); clearInterval(cycleTimer);});
+}
+
+/* ---------- ACT 6: checkpoint vs window ---------- */
+function initAct6(){
+  const windowLine = document.getElementById('cmp-window-line');
+  const cpLine = document.getElementById('cmp-cp-line');
+  const dashboardEl = document.getElementById('cmp-dashboard');
+  const s3El = document.getElementById('cmp-s3');
+  const captionEl = document.getElementById('cmp-caption');
+  windowLine.innerHTML = '';
+  cpLine.innerHTML = '';
+
+  function addChip(line, cls, text){
+    const chip = document.createElement('div');
+    chip.className = 'compare-chip ' + cls;
+    chip.textContent = text;
+    line.appendChild(chip);
+    while(line.children.length > 6) line.removeChild(line.firstChild);
+  }
+
+  function flash(el, color){
+    el.animate([{boxShadow:'0 0 0 0 '+color},{boxShadow:'0 0 0 10px transparent'}], {duration:600});
+  }
+
+  let winSeq = 1;
+  let cpSeq = 1;
+
+  // deliberately different, unaligned cadences — the whole point is that
+  // neither rhythm has anything to do with the other
+  const winTimer = setInterval(()=>{
+    addChip(windowLine, 'window-chip', 'W'+winSeq);
+    flash(dashboardEl, 'rgba(242,153,74,0.4)');
+    winSeq++;
+  }, 1800);
+
+  const cpTimer = setInterval(()=>{
+    addChip(cpLine, 'cp-chip', '✓');
+    flash(s3El, 'rgba(82,209,192,0.35)');
+    cpSeq++;
+  }, 1150);
+
+  const steps = [
+    { caption:"Same stream, feeding two completely separate jobs, running at the same time." },
+    { caption:"The window job closes on its own schedule — every close (W1, W2, W3…) is a new row your dashboard actually shows." },
+    { caption:"The checkpoint job saves on its own clock — notice it never lines up with a window closing — and every save only ever reaches S3." },
+    { caption:"That's the entire difference: one of these produces your output. The other only protects it. Neither one needs the other to do its job." },
+  ];
+  let stepIndex = 0;
+  function showStep(i){
+    captionEl.textContent = steps[i].caption;
+    setStepIndicator(i, steps.length);
+  }
+  showStep(0);
+  advanceWithinAct = function(){
+    if(stepIndex < steps.length-1){ stepIndex++; showStep(stepIndex); return true; }
+    return false;
+  };
+
+  cleanupFns.push(()=>{clearInterval(winTimer); clearInterval(cpTimer);});
+}
+
+/* ---------- ACT 7: scale out ---------- */
+function initAct7(){
   const lanesEl = document.getElementById('scale-lanes');
   const captionEl = document.getElementById('scale-caption');
+  const parallelismEl = document.getElementById('stat-parallelism');
   const kpuEl = document.getElementById('stat-kpu');
   const throughputEl = document.getElementById('stat-throughput');
   lanesEl.innerHTML = '';
@@ -772,7 +1288,7 @@ function initAct3(){
     row.className = 'lane-row' + (locked ? ' lane-locked' : '');
     row.dataset.lane = i;
     row.innerHTML =
-      '<div class="node" style="min-width:80px;">shard '+(i+1)+'</div>'+
+      '<div class="node" style="min-width:80px;"><img class="node-icon" src="'+KINESIS_ICON+'" width="18" height="18" alt="Kinesis shard" style="margin-bottom:4px;">shard '+(i+1)+'</div>'+
       '<div class="lane-track"></div>'+
       '<div class="node" style="min-width:130px;">'+(locked ? 'needs resharding' : 'subtask '+(i+1))+'</div>';
     return row;
@@ -807,6 +1323,10 @@ function initAct3(){
       }, 260 + Math.random()*140);
       activeLanes++;
     }
+    // ParallelismPerKPU defaults to 1, so these two numbers move in lockstep —
+    // that's the fact this whole act exists to make unmistakable
+    parallelismEl.textContent = n;
+    kpuEl.textContent = n;
   }
 
   const throughputTimer = setInterval(()=>{
@@ -815,16 +1335,22 @@ function initAct3(){
   }, 1000);
 
   // scripted narration sequence
+  let splitTimer = null;
   const steps = [
-    { caption:"Two shards in the source stream \u2192 two parallel subtasks in Flink \u2192 two KPUs behind them. One-to-one.",
-      action:()=>{ setLaneCount(2); kpuEl.textContent='2'; } },
-    { caption:"Now say traffic on this stream picks up\u2026",
+    { caption:"One shard, one parallel subtask. Watch the numbers below: parallelism 1, KPUs 1 — every subtask needs exactly one KPU to run on.",
+      // opens on a single lane — the same one-worker shape from the checkpoint act —
+      // then splits into two, so scaling reads as "one becomes many," not a fresh topic
+      action:()=>{
+        setLaneCount(1);
+        splitTimer = setTimeout(()=>{ setLaneCount(2); }, 900);
+      } },
+    { caption:"A second shard means a second subtask — and the KPU count ticks up right alongside it, 1-to-1. Now say traffic on this stream picks up…",
       action:()=>{} },
-    { caption:"\u2026so Managed Service for Apache Flink adds a subtask and a KPU to match. Nobody provisioned a worker by hand.",
-      action:()=>{ setLaneCount(3); kpuEl.textContent='3'; } },
-    { caption:"That's what \u201Cauto scaling\u201D means here \u2014 more KPUs behind the scenes, not more servers for you to manage.",
+    { caption:"…so Managed Service for Apache Flink adds a third subtask, and a third KPU to match. Nobody provisioned a worker by hand — the two numbers just moved together again.",
+      action:()=>{ setLaneCount(3); } },
+    { caption:"That's what “auto scaling” means here — more KPUs behind the scenes, tracking parallelism automatically, not more servers for you to manage.",
       action:()=>{} },
-    { caption:"The one manual lever: parallelism can't exceed the shard count. Need more than that? You reshard the stream itself.",
+    { caption:"The one manual lever: parallelism (and so KPUs) can't exceed the shard count. Need more than that? You reshard the stream itself.",
       action:()=>{ showLockedPreview(true); } },
   ];
   let stepIndex = 0;
@@ -843,11 +1369,12 @@ function initAct3(){
   cleanupFns.push(()=>{
     Object.values(laneTimers).forEach(clearInterval);
     clearInterval(throughputTimer);
+    clearTimeout(splitTimer);
   });
 }
 
-/* ---------- ACT 4: where results go ---------- */
-function initAct4(){
+/* ---------- ACT 8: where results go ---------- */
+function initAct8(){
   const trackRaw = document.getElementById('track-raw');
   const trackIn = document.getElementById('track-flink-in');
   const trackOut = document.getElementById('track-flink-out');
@@ -866,11 +1393,10 @@ function initAct4(){
   const outTimer = setInterval(()=>{ flow(trackOut, {duration:1000, color:'var(--warn)'}); }, 1600);
 
   const steps = [
-    { caption:"The raw stream keeps flowing untouched \u2014 anyone who needs every record can still read it directly." },
-    { caption:"Flink reads that same stream and continuously computes something new \u2014 filtered, aggregated, joined." },
-    { caption:"Notice the pace: many raw events go in, far fewer results come out. That's aggregation \u2014 the output is smaller and already meaningful." },
-    { caption:"The result is written to its own stream \u2014 two streams now exist, for two different audiences." },
-    { caption:"In Flink SQL, this is one statement: INSERT INTO ticket_sales_aggregated SELECT store_id, SUM(amount) FROM orders_raw GROUP BY store_id, window." },
+    { caption:"The raw stream keeps flowing untouched — anyone who needs every record can still read it directly." },
+    { caption:"Flink reads that same stream and continuously computes something new — filtered, aggregated, joined." },
+    { caption:"Notice the pace: many raw events go in, far fewer results come out. That's aggregation — the output is smaller and already meaningful." },
+    { caption:"The result is written to its own stream — two streams now exist, for two different audiences." },
   ];
   let stepIndex = 0;
   function showStep(i){
